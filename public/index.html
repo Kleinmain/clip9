@@ -79,7 +79,8 @@
   .CodeMirror-cursor { border-left-color:var(--text); }
   .CodeMirror-selected { background:color-mix(in srgb,var(--accent) 25%,transparent)!important; }
   .cm-s-default .cm-keyword,.cm-s-default .cm-tag { color:#c026d3; }.cm-s-default .cm-string { color:#15803d; }.cm-s-default .cm-number { color:#d97706; }.cm-s-default .cm-comment { color:var(--muted); }.cm-s-default .cm-variable-2,.cm-s-default .cm-attribute { color:#2563eb; }
-  .cm-python-indent-guide { box-shadow:inset -1px 0 color-mix(in srgb,var(--accent) 48%,transparent); }
+  .cm-python-indent-guide { position:relative; }
+  .cm-python-indent-guide::after { content:""; position:absolute; z-index:1; top:-.45em; bottom:-.45em; right:0; border-right:1px solid color-mix(in srgb,var(--accent) 52%,transparent); pointer-events:none; }
   .python-mode-control { padding:4px 8px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); }
   .editor-shell.fullscreen { position:fixed; inset:0; z-index:1000; border:0; border-radius:0; }
   .editor-shell.fullscreen .CodeMirror,.editor-shell.fullscreen .preview-pane,.editor-shell.fullscreen .editor-panes { height:calc(100vh - 88px); min-height:0; }
