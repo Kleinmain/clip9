@@ -3,289 +3,211 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shared Clipboard</title>
+<meta name="theme-color" content="#2563eb">
+<meta name="description" content="A fast shared clipboard for moving text between devices.">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<title>Clip9 Shared Clipboard</title>
 <style>
-  :root {
-    --bg: #f6f7f9; --card: #ffffff; --text: #1a1d21; --muted: #6b7280;
-    --border: #d9dde3; --accent: #2563eb; --accent-text: #ffffff; --ok: #16a34a; --warn: #d97706;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0f1216; --card: #171b21; --text: #e8eaed; --muted: #8b93a1;
-      --border: #2a313b; --accent: #5b8def; --accent-text: #0b0e12; --ok: #4ade80; --warn: #fbbf24;
-    }
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  }
-  .wrap { max-width: 900px; margin: 0 auto; padding: 16px; min-height: 100%; display: flex; flex-direction: column; gap: 12px; }
-  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  h1 { font-size: 1.1rem; margin: 0; font-weight: 650; }
-  h1 span { color: var(--accent); }
-  .meta { display: flex; gap: 14px; align-items: center; color: var(--muted); font-size: .85rem; flex-wrap: wrap; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-right: 6px; }
-  .dot.ok { background: var(--ok); } .dot.busy { background: var(--warn); }
-  textarea {
-    flex: 1; min-height: 55vh; width: 100%; resize: vertical; padding: 14px;
-    background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 12px;
-    font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; outline: none;
-  }
-  textarea:focus { border-color: var(--accent); }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; }
-  button {
-    font: inherit; padding: 9px 16px; border-radius: 10px; cursor: pointer;
-    border: 1px solid var(--border); background: var(--card); color: var(--text);
-  }
-  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-  button:hover { filter: brightness(1.06); }
-  .hint { color: var(--muted); font-size: .8rem; }
-  /* landing */
-  .landing { margin: auto; text-align: center; max-width: 420px; width: 100%; }
-  .landing h1 { font-size: 1.6rem; margin-bottom: 6px; }
-  .landing p { color: var(--muted); margin-top: 0; }
-  .landing form { display: flex; gap: 8px; margin: 18px 0 10px; }
-  .landing input {
-    flex: 1; min-width: 0; padding: 10px 12px; font: inherit; border-radius: 10px;
-    border: 1px solid var(--border); background: var(--card); color: var(--text); outline: none;
-  }
-  .landing input:focus { border-color: var(--accent); }
-  .recent { margin-top: 24px; text-align: left; }
-  .recent h2 { font-size: 1rem; margin-bottom: 6px; }
-  .recent ol { list-style: none; padding: 0; display: grid; gap: 8px; }
-  .recent a { display: block; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--accent); text-decoration: none; }
-  .recent a:hover, .recent a:focus-visible { border-color: var(--accent); text-decoration: underline; }
-  .hidden { display: none !important; }
+  :root { --bg:#f4f6fa; --card:#fff; --text:#18202b; --muted:#667085; --border:#d6dce5; --accent:#2563eb; --accent2:#1d4ed8; --ok:#15803d; --warn:#b45309; --danger:#b42318; --soft:#eef4ff; }
+  @media (prefers-color-scheme:dark) { :root { --bg:#0d1117; --card:#161b22; --text:#e6edf3; --muted:#9aa4b2; --border:#30363d; --accent:#79a7ff; --accent2:#a8c5ff; --ok:#4ade80; --warn:#fbbf24; --danger:#ff7b72; --soft:#17233a; } }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  button,input,select,textarea { font:inherit; }
+  button,input,select { min-height:42px; border:1px solid var(--border); border-radius:10px; background:var(--card); color:var(--text); }
+  button { padding:8px 14px; cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible { outline:3px solid color-mix(in srgb,var(--accent) 35%,transparent); outline-offset:2px; }
+  button.primary { color:white; background:#2563eb; border-color:#2563eb; }
+  button.danger { color:var(--danger); }
+  button.small { min-height:34px; padding:5px 9px; font-size:.82rem; }
+  input,select { padding:8px 11px; }
+  .wrap { width:min(960px,100%); min-height:100vh; margin:auto; padding:18px; display:flex; flex-direction:column; gap:14px; }
+  .hidden { display:none!important; }
+  .muted,.hint { color:var(--muted); }
+  .hint { font-size:.82rem; }
+  .landing { width:min(560px,100%); margin:auto; text-align:center; }
+  .brand { margin:0 0 6px; font-size:2rem; letter-spacing:-.04em; }
+  .brand span,h1 span { color:var(--accent); }
+  .open-form { display:flex; gap:8px; margin:22px 0 10px; }
+  .open-form input { flex:1; min-width:0; }
+  .landing-actions { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; }
+  .privacy { margin:18px auto 0; max-width:500px; }
+  .recent { margin-top:30px; text-align:left; }
+  .recent-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .recent h2 { font-size:1.05rem; margin:0; }
+  #recentSearch { width:100%; margin:10px 0; }
+  .recent-list { list-style:none; padding:0; margin:0; display:grid; gap:8px; }
+  .recent-item { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:var(--card); }
+  .recent-link { color:var(--text); text-decoration:none; min-width:0; }
+  .recent-link strong,.recent-link small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .recent-link small { color:var(--muted); }
+  .recent-buttons { display:flex; gap:5px; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  h1 { font-size:1.15rem; margin:0; }
+  .meta { display:flex; gap:12px; color:var(--muted); font-size:.86rem; flex-wrap:wrap; }
+  .dot { display:inline-block; width:8px; height:8px; margin-right:6px; border-radius:50%; background:var(--muted); }
+  .dot.ok { background:var(--ok); } .dot.busy { background:var(--warn); } .dot.bad { background:var(--danger); }
+  .settings { display:flex; align-items:end; gap:10px; flex-wrap:wrap; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:var(--card); }
+  .field { display:grid; gap:3px; font-size:.78rem; color:var(--muted); }
+  .field input { width:210px; }
+  textarea { flex:1; min-height:52vh; width:100%; resize:vertical; padding:15px; border:1px solid var(--border); border-radius:12px; background:var(--card); color:var(--text); font:15px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  .under-editor { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  .conflict { padding:11px 13px; border:1px solid var(--warn); border-radius:10px; background:color-mix(in srgb,var(--warn) 10%,var(--card)); }
+  dialog { width:min(420px,calc(100% - 30px)); border:1px solid var(--border); border-radius:14px; padding:20px; background:var(--card); color:var(--text); box-shadow:0 20px 70px #0006; }
+  dialog::backdrop { background:#0008; }
+  dialog h2 { margin-top:0; }
+  dialog form { display:grid; gap:12px; }
+  dialog input { width:100%; }
+  #qrImage { display:block; width:280px; max-width:100%; margin:12px auto; border-radius:8px; background:white; }
+  @media (max-width:600px) { .wrap{padding:12px}.open-form{flex-direction:column}.open-form button{width:100%}.settings{align-items:stretch}.field,.field input,.field select{width:100%}.row button{flex:1}.recent-item{grid-template-columns:1fr}.recent-buttons{justify-content:flex-end} }
 </style>
 </head>
 <body>
-<div class="wrap">
-
-  <!-- Landing page (path "/") -->
-  <div id="landing" class="landing hidden">
-    <h1>Shared <span>Clipboard</span></h1>
-    <p>Pick a number. Anyone who opens the same number sees the same text.</p>
-    <form id="goForm">
-      <input id="numInput" inputmode="numeric" pattern="\d{1,10}" maxlength="10" placeholder="e.g. 2357" autocomplete="off" required>
+<main class="wrap">
+  <section id="landing" class="landing hidden">
+    <h1 class="brand">Clip<span>9</span></h1>
+    <p class="muted">Move text between devices with one shared link.</p>
+    <form id="goForm" class="open-form">
+      <input id="idInput" maxlength="64" placeholder="Clipboard number or ID" autocomplete="off" required aria-label="Clipboard ID">
       <button class="primary" type="submit">Open</button>
     </form>
-    <button id="randomBtn" type="button">Generate a random number</button>
+    <div class="landing-actions">
+      <button id="newBtn" type="button">Create private-link note</button>
+      <button id="installBtn" class="hidden" type="button">Install app</button>
+    </div>
     <section class="recent" aria-labelledby="recentHeading">
-      <h2 id="recentHeading">Recently opened notes</h2>
-      <p class="hint">Your last 10 notes opened in this browser, newest first.</p>
-      <ol id="recentList"></ol>
-      <p id="recentEmpty" class="hint">No notes opened yet.</p>
+      <div class="recent-head"><h2 id="recentHeading">Recently opened</h2><button id="clearHistoryBtn" class="small" type="button">Clear history</button></div>
+      <input id="recentSearch" type="search" placeholder="Search recent notes" aria-label="Search recent notes">
+      <ol id="recentList" class="recent-list"></ol>
+      <p id="recentEmpty" class="hint">No notes opened in this browser yet.</p>
     </section>
-    <p class="hint" style="margin-top:18px">Clipboards are permanent and not private: anyone who knows the number can read and edit them.</p>
-  </div>
+    <p class="hint privacy">Notes remain until deleted. They are not end-to-end encrypted. Use an access password and an unguessable link for sensitive sharing.</p>
+  </section>
 
-  <!-- Clipboard page (path "/<number>") -->
-  <div id="clip" class="hidden" style="display:contents">
+  <section id="clip" class="hidden" style="display:contents">
     <header>
       <h1>Clipboard <span id="clipId"></span></h1>
-      <div class="meta">
-        <span><span id="dot" class="dot"></span><span id="status">Loading…</span></span>
-        <span id="expiry"></span>
-      </div>
+      <div class="meta"><span><i id="dot" class="dot"></i><span id="status">Loading…</span></span><span id="expiry"></span><span id="lockStatus"></span></div>
     </header>
-    <textarea id="text" placeholder="Paste or type here. Anyone with this link sees the same text." spellcheck="false" disabled></textarea>
-    <div class="row">
-      <button id="copyBtn" class="primary" type="button">Copy to clipboard</button>
-      <button id="clearBtn" type="button">Clear</button>
-      <button id="linkBtn" type="button">Copy link</button>
-      <button id="homeBtn" type="button">Other clipboard</button>
+    <div class="settings">
+      <label class="field">Expiration<select id="ttlSelect"><option value="">Permanent</option><option value="3600000">1 hour after edit</option><option value="86400000">1 day after edit</option><option value="604800000">1 week after edit</option></select></label>
+      <label id="newPasswordWrap" class="field hidden">Protect new note (optional)<input id="newPassword" type="password" minlength="4" maxlength="100" placeholder="At least 4 characters" autocomplete="new-password"></label>
+      <span class="hint">Expiration restarts when text is saved.</span>
     </div>
-    <div class="hint">Syncs automatically every couple of seconds. Use Clear to delete this clipboard.</div>
-  </div>
+    <div id="conflict" class="conflict hidden"><strong>Another device changed this note.</strong> Your text has not been overwritten. <button id="loadRemoteBtn" class="small" type="button">Load remote</button> <button id="overwriteBtn" class="small" type="button">Overwrite remote</button></div>
+    <textarea id="text" placeholder="Paste or type here…" spellcheck="false" disabled></textarea>
+    <div class="under-editor"><span id="counter" class="hint">0 / 500,000</span><span class="hint">Auto-saves and syncs while open.</span></div>
+    <div class="row">
+      <button id="copyBtn" class="primary" type="button">Copy text</button>
+      <button id="clearBtn" type="button">Clear text</button>
+      <button id="linkBtn" type="button">Copy link</button>
+      <button id="qrBtn" type="button">QR code</button>
+      <button id="homeBtn" type="button">Home</button>
+      <button id="deleteBtn" class="danger" type="button">Delete note</button>
+    </div>
+  </section>
+</main>
 
-</div>
+<dialog id="passwordDialog">
+  <h2>Protected clipboard</h2><p class="muted">Enter its access password. It stays only in this browser tab.</p>
+  <form id="passwordForm"><input id="passwordInput" type="password" autocomplete="current-password" required autofocus><span id="passwordError" class="hint"></span><button class="primary" type="submit">Unlock</button><button id="passwordHome" type="button">Back home</button></form>
+</dialog>
+<dialog id="qrDialog"><h2>Scan to open</h2><img id="qrImage" alt="QR code for this clipboard"><div class="row"><button id="qrClose" type="button">Close</button><button id="qrCopy" class="primary" type="button">Copy link</button></div></dialog>
 
 <script>
 (function () {
+  "use strict";
   var $ = function (id) { return document.getElementById(id); };
-  var path = location.pathname.replace(/^\/+|\/+$/g, "");
-  var RECENT_KEY = "clip9.recentNotes";
+  var path = decodeURIComponent(location.pathname.replace(/^\/+|\/+$/g, ""));
+  var VALID_ID = /^(?:\d{1,10}|[A-Za-z0-9_-]{12,64})$/;
+  var RECENT_KEY = "clip9.recentNotes.v2";
+  var MAX_CHARS = 500000;
 
-  function readRecent() {
+  function safeRecent() {
     try {
-      var items = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]");
-      if (!Array.isArray(items)) return [];
-      return items.filter(function (item, index) {
-        return typeof item === "string" && /^\d{1,10}$/.test(item) && items.indexOf(item) === index;
-      }).slice(0, 10);
+      var data = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]");
+      return Array.isArray(data) ? data.filter(function (x) { return x && VALID_ID.test(x.id); }).slice(0, 10) : [];
     } catch (e) { return []; }
   }
-
+  function saveRecent(items) { try { localStorage.setItem(RECENT_KEY, JSON.stringify(items.slice(0, 10))); } catch (e) {} }
+  function touchRecent(id) {
+    var old = safeRecent(), found = old.find(function (x) { return x.id === id; });
+    saveRecent([{ id:id, name:found && found.name || "", openedAt:Date.now() }].concat(old.filter(function (x) { return x.id !== id; })));
+  }
   function renderRecent() {
-    var items = readRecent();
+    var query = ($("recentSearch").value || "").toLowerCase();
+    var items = safeRecent().filter(function (x) { return (x.name + " " + x.id).toLowerCase().indexOf(query) >= 0; });
     $("recentList").textContent = "";
     $("recentEmpty").classList.toggle("hidden", items.length > 0);
-    items.forEach(function (number) {
-      var li = document.createElement("li");
-      var link = document.createElement("a");
-      link.href = "/" + number;
-      link.textContent = "Clipboard #" + number;
-      li.appendChild(link);
-      $("recentList").appendChild(li);
+    items.forEach(function (item) {
+      var li=document.createElement("li"), a=document.createElement("a"), strong=document.createElement("strong"), small=document.createElement("small"), actions=document.createElement("div"), rename=document.createElement("button"), remove=document.createElement("button");
+      li.className="recent-item"; a.className="recent-link"; a.href="/"+item.id; strong.textContent=item.name || "Clipboard "+item.id; small.textContent=item.id+" · "+new Date(item.openedAt).toLocaleString(); a.append(strong,small);
+      actions.className="recent-buttons"; rename.className=remove.className="small"; rename.type=remove.type="button"; rename.textContent="Rename"; remove.textContent="Remove";
+      rename.onclick=function(){ var name=prompt("Name this note in your browser:",item.name||""); if(name===null)return; var all=safeRecent(); all.forEach(function(x){if(x.id===item.id)x.name=name.trim().slice(0,80);}); saveRecent(all); renderRecent(); };
+      remove.onclick=function(){ saveRecent(safeRecent().filter(function(x){return x.id!==item.id;})); renderRecent(); };
+      actions.append(rename,remove); li.append(a,actions); $("recentList").appendChild(li);
     });
   }
+  function randomId() {
+    var bytes=new Uint8Array(18); crypto.getRandomValues(bytes);
+    return Array.from(bytes,function(b){return b.toString(16).padStart(2,"0");}).join("");
+  }
+  function copyText(value) {
+    if(navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(value);
+    var t=document.createElement("textarea"); t.value=value; t.style.position="fixed"; t.style.opacity="0"; document.body.appendChild(t); t.select(); var ok=document.execCommand("copy"); t.remove(); return ok?Promise.resolve():Promise.reject();
+  }
+  function flash(btn,msg){var old=btn.textContent;btn.textContent=msg;setTimeout(function(){btn.textContent=old;},1200);}
 
-  // ---------- Landing ----------
-  if (!/^\d{1,10}$/.test(path)) {
-    $("landing").classList.remove("hidden");
-    renderRecent();
-    window.addEventListener("pageshow", renderRecent);
-    window.addEventListener("storage", function (e) {
-      if (e.key === RECENT_KEY || e.key === null) renderRecent();
-    });
-    $("goForm").addEventListener("submit", function (e) {
-      e.preventDefault();
-      var n = $("numInput").value.trim();
-      if (/^\d{1,10}$/.test(n)) location.href = "/" + n;
-    });
-    $("randomBtn").addEventListener("click", function () {
-      location.href = "/" + (Math.floor(Math.random() * 900000) + 100000);
-    });
+  var installPrompt=null;
+  window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();installPrompt=e;$("installBtn").classList.remove("hidden");});
+  $("installBtn").onclick=function(){if(installPrompt){installPrompt.prompt();installPrompt=null;$("installBtn").classList.add("hidden");}};
+  if("serviceWorker" in navigator) window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js").catch(function(){});});
+
+  if (!VALID_ID.test(path)) {
+    $("landing").classList.remove("hidden"); renderRecent();
+    $("goForm").onsubmit=function(e){e.preventDefault();var id=$("idInput").value.trim();if(VALID_ID.test(id))location.href="/"+id;else alert("Enter a 1-10 digit number or a valid Clip9 ID.");};
+    $("newBtn").onclick=function(){location.href="/"+randomId();};
+    $("recentSearch").oninput=renderRecent;
+    $("clearHistoryBtn").onclick=function(){if(confirm("Remove all recent notes from this browser?")){saveRecent([]);renderRecent();}};
+    window.addEventListener("storage",renderRecent);
     return;
   }
 
-  // ---------- Clipboard ----------
-  var id = path;
-  try {
-    localStorage.setItem(RECENT_KEY, JSON.stringify([id].concat(readRecent().filter(function (number) {
-      return number !== id;
-    })).slice(0, 10)));
-  } catch (e) { /* Notes still work when browser storage is unavailable. */ }
-  var API = "/.netlify/functions/clip?id=" + encodeURIComponent(id);
-  var POLL_MS = 2000, SAVE_DELAY_MS = 600;
+  var id=path, API="/.netlify/functions/clip?id="+encodeURIComponent(id), ta=$("text");
+  var knownVersion=null, expiresAt=null, dirty=false, saving=false, saveTimer=null, password=sessionStorage.getItem("clip9.password."+id)||"", forceNext=false, locked=false;
+  touchRecent(id); $("clip").classList.remove("hidden"); $("clipId").textContent="#"+id; document.title="Clipboard #"+id+" · Clip9";
 
-  $("clip").classList.remove("hidden");
-  $("clipId").textContent = "#" + id;
-  document.title = "Clipboard #" + id;
+  function setStatus(msg,kind){$("status").textContent=msg;$("dot").className="dot"+(kind?" "+kind:"");}
+  function updateCounter(){$("counter").textContent=ta.value.length.toLocaleString()+" / "+MAX_CHARS.toLocaleString();}
+  function renderExpiry(){if(!expiresAt){$("expiry").textContent="Permanent";return;}var ms=expiresAt-Date.now();if(ms<=0){$("expiry").textContent="Expired";return;}var min=Math.ceil(ms/60000),days=Math.floor(min/1440),hours=Math.floor((min%1440)/60);$("expiry").textContent="Expires in "+(days?days+"d ":"")+(hours?hours+"h ":"")+(min%60)+"m";}
+  setInterval(renderExpiry,30000);
+  function api(method,body,query){return fetch(API+(query||""),{method:method,headers:Object.assign({"x-clip-password":password},body?{"content-type":"application/json"}:{}),body:body?JSON.stringify(body):undefined,cache:"no-store"}).then(function(r){return r.json().catch(function(){return{};}).then(function(d){if(!r.ok){var e=new Error(d.error||"Request failed");e.status=r.status;e.data=d;throw e;}return d;});});}
+  function showPassword(){if(locked)return;locked=true;ta.disabled=true;$("passwordError").textContent="";$("passwordDialog").showModal();}
+  $("passwordForm").onsubmit=function(e){e.preventDefault();password=$("passwordInput").value;sessionStorage.setItem("clip9.password."+id,password);locked=false;$("passwordDialog").close();knownVersion=null;poll();};
+  $("passwordHome").onclick=function(){location.href="/";};
 
-  var ta = $("text");
-  var knownVersion = null;   // last server version we have applied or saved
-  var expiresAt = null;
-  var dirty = false;         // local edits not yet saved
-  var saving = false;
-  var saveTimer = null;
+  function applyRemote(d){var pos=ta.selectionStart;ta.value=d.text||"";try{ta.setSelectionRange(pos,pos);}catch(e){}knownVersion=d.version;expiresAt=d.expiresAt;if(d.ttl!==undefined)$("ttlSelect").value=d.ttl===null?"":String(d.ttl);dirty=false;$("conflict").classList.add("hidden");$("newPasswordWrap").classList.toggle("hidden",knownVersion!==0);$("lockStatus").textContent=d.passwordProtected?"🔒 Protected":"";updateCounter();renderExpiry();}
+  function save(force){clearTimeout(saveTimer);if(saving){saveTimer=setTimeout(function(){save(force);},300);return;}var sent=ta.value,base=knownVersion||0,newPass=base===0?$("newPassword").value:"";saving=true;setStatus("Saving…","busy");api("PUT",{text:sent,baseVersion:base,force:Boolean(force||forceNext),ttl:$("ttlSelect").value===""?null:Number($("ttlSelect").value),newPassword:newPass}).then(function(d){forceNext=false;knownVersion=d.version;expiresAt=d.expiresAt;if(newPass){password=newPass;sessionStorage.setItem("clip9.password."+id,password);}$("newPasswordWrap").classList.add("hidden");$("lockStatus").textContent=d.passwordProtected?"🔒 Protected":"";if(ta.value===sent){dirty=false;setStatus("Saved","ok");}else save();renderExpiry();}).catch(function(e){if(e.status===401){showPassword();setStatus("Locked","bad");}else if(e.status===409){$("conflict").classList.remove("hidden");setStatus("Conflict","bad");}else{setStatus("Save failed: "+e.message,"bad");saveTimer=setTimeout(save,4000);}}).finally(function(){saving=false;});}
+  ta.oninput=function(){dirty=true;updateCounter();setStatus("Saving…","busy");clearTimeout(saveTimer);saveTimer=setTimeout(save,700);};
+  $("ttlSelect").onchange=function(){if(knownVersion!==null){dirty=true;save();}};
+  function poll(){if(dirty||saving||locked)return;var q=knownVersion===null?"":"&since="+knownVersion;api("GET",null,q).then(function(d){if(dirty||saving)return;expiresAt=d.expiresAt;if(d.changed)applyRemote(d);else renderExpiry();ta.disabled=false;setStatus(knownVersion===0?"Empty":"Synced","ok");}).catch(function(e){if(e.status===401)showPassword();else setStatus(navigator.onLine?"Retrying…":"Offline","bad");});}
+  function loop(){poll();setTimeout(loop,document.hidden?30000:5000);} loop();
+  document.addEventListener("visibilitychange",function(){if(!document.hidden)poll();});
+  window.addEventListener("online",poll);window.addEventListener("offline",function(){setStatus("Offline","bad");});
 
-  function setStatus(msg, kind) {
-    $("status").textContent = msg;
-    $("dot").className = "dot" + (kind ? " " + kind : "");
-  }
-
-  function renderExpiry() {
-    var el = $("expiry");
-    if (!expiresAt) { el.textContent = ""; return; }
-    var ms = expiresAt - Date.now();
-    if (ms <= 0) { el.textContent = "Expired"; return; }
-    var m = Math.floor(ms / 60000), h = Math.floor(m / 60);
-    el.textContent = "Expires in " + (h ? h + "h " : "") + (m % 60) + "m";
-  }
-  setInterval(renderExpiry, 15000);
-
-  function api(method, body, query) {
-    return fetch(API + (query || ""), {
-      method: method,
-      headers: body ? { "content-type": "application/json" } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-      cache: "no-store"
-    }).then(function (r) {
-      return r.json().then(function (d) {
-        if (!r.ok) throw new Error(d.error || "Request failed");
-        return d;
-      });
-    });
-  }
-
-  function applyRemote(d) {
-    var pos = ta.selectionStart;
-    ta.value = d.text;
-    try { ta.setSelectionRange(pos, pos); } catch (e) {}
-    knownVersion = d.version;
-  }
-
-  function save() {
-    clearTimeout(saveTimer);
-    if (saving) { saveTimer = setTimeout(save, 300); return; }
-    var sent = ta.value;
-    saving = true;
-    setStatus("Saving…", "busy");
-    api("PUT", { text: sent }).then(function (d) {
-      knownVersion = d.version;
-      expiresAt = d.expiresAt;
-      if (ta.value === sent) { dirty = false; setStatus("Saved", "ok"); }
-      else { save(); }
-      renderExpiry();
-    }).catch(function (e) {
-      setStatus("Save failed: " + e.message, "");
-      saveTimer = setTimeout(save, 3000); // retry
-    }).then(function () { saving = false; });
-  }
-
-  ta.addEventListener("input", function () {
-    dirty = true;
-    setStatus("Saving…", "busy");
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(save, SAVE_DELAY_MS);
-  });
-
-  function poll() {
-    if (dirty || saving) return;
-    var q = knownVersion === null ? "" : "&since=" + knownVersion;
-    api("GET", null, q).then(function (d) {
-      if (dirty || saving) return; // user started typing meanwhile
-      expiresAt = d.expiresAt;
-      if (d.changed) {
-        applyRemote(d);
-        setStatus(knownVersion === 0 ? "Empty" : "Synced", "ok");
-      } else if ($("status").textContent === "Loading…") {
-        setStatus("Synced", "ok");
-      }
-      ta.disabled = false;
-      renderExpiry();
-    }).catch(function () { setStatus("Offline, retrying…", ""); });
-  }
-
-  function scheduleLoop() {
-    poll();
-    setTimeout(scheduleLoop, document.hidden ? POLL_MS * 3 : POLL_MS);
-  }
-  scheduleLoop();
-  document.addEventListener("visibilitychange", function () { if (!document.hidden) poll(); });
-
-  // ---------- Buttons ----------
-  function copyText(str) {
-    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(str);
-    return new Promise(function (res, rej) {
-      var t = document.createElement("textarea");
-      t.value = str; t.style.position = "fixed"; t.style.opacity = "0";
-      document.body.appendChild(t); t.select();
-      try { document.execCommand("copy") ? res() : rej(); } catch (e) { rej(e); }
-      document.body.removeChild(t);
-    });
-  }
-  function flash(btn, msg) {
-    var old = btn.textContent; btn.textContent = msg;
-    setTimeout(function () { btn.textContent = old; }, 1200);
-  }
-
-  $("copyBtn").addEventListener("click", function () {
-    var b = this;
-    copyText(ta.value).then(function () { flash(b, "Copied!"); }, function () { flash(b, "Copy failed"); });
-  });
-  $("linkBtn").addEventListener("click", function () {
-    var b = this;
-    copyText(location.href).then(function () { flash(b, "Link copied!"); }, function () { flash(b, "Copy failed"); });
-  });
-  $("clearBtn").addEventListener("click", function () {
-    if (!ta.value) return;
-    ta.value = ""; dirty = true; save(); ta.focus();
-  });
-  $("homeBtn").addEventListener("click", function () { location.href = "/"; });
+  $("loadRemoteBtn").onclick=function(){dirty=false;knownVersion=null;$("conflict").classList.add("hidden");poll();};
+  $("overwriteBtn").onclick=function(){forceNext=true;$("conflict").classList.add("hidden");save(true);};
+  $("copyBtn").onclick=function(){var b=this;copyText(ta.value).then(function(){flash(b,"Copied!");},function(){flash(b,"Copy failed");});};
+  $("clearBtn").onclick=function(){if(!ta.value||!confirm("Clear all text? The empty note will be saved."))return;ta.value="";dirty=true;updateCounter();save();ta.focus();};
+  $("linkBtn").onclick=function(){var b=this;copyText(location.href).then(function(){flash(b,"Link copied!");});};
+  $("homeBtn").onclick=function(){location.href="/";};
+  $("deleteBtn").onclick=function(){if(!confirm("Permanently delete this clipboard? This cannot be undone."))return;api("DELETE").then(function(){saveRecent(safeRecent().filter(function(x){return x.id!==id;}));location.href="/";}).catch(function(e){alert("Delete failed: "+e.message);});};
+  $("qrBtn").onclick=function(){$("qrImage").src="/.netlify/functions/qr?url="+encodeURIComponent(location.href);$("qrDialog").showModal();};
+  $("qrClose").onclick=function(){$("qrDialog").close();};
+  $("qrCopy").onclick=function(){var b=this;copyText(location.href).then(function(){flash(b,"Copied!");});};
+  updateCounter();
 })();
 </script>
 </body>
