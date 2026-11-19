@@ -1,0 +1,13 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Any path such as /2357 serves the same page; the page reads the number from the URL.
+# (Real files and /.netlify/functions/* are matched first, so this only catches page URLs.)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
