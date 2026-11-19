@@ -85,6 +85,7 @@
     </form>
     <div class="landing-actions">
       <button id="newBtn" type="button">Create private-link note</button>
+      <button id="syncBtn" type="button">Sync devices</button>
       <button id="installBtn" class="hidden" type="button">Install app</button>
     </div>
     <section class="recent" aria-labelledby="recentHeading">
@@ -126,6 +127,7 @@
       <button id="clearBtn" type="button">Clear text</button>
       <button id="linkBtn" type="button">Copy link</button>
       <button id="qrBtn" type="button">QR code</button>
+      <button id="shareBtn" type="button">Share</button>
       <select id="exportFormat" aria-label="Download format"><option value="txt">.txt</option><option value="md">.md</option></select>
       <button id="downloadBtn" type="button">Download</button>
       <button id="importBtn" type="button">Import</button>
@@ -143,6 +145,8 @@
   <form id="passwordForm"><input id="passwordInput" type="password" autocomplete="current-password" required autofocus><span id="passwordError" class="hint"></span><button class="primary" type="submit">Unlock</button><button id="passwordHome" type="button">Back home</button></form>
 </dialog>
 <dialog id="qrDialog"><h2>Scan to open</h2><img id="qrImage" alt="QR code for this clipboard"><div class="row"><button id="qrClose" type="button">Close</button><button id="qrCopy" class="primary" type="button">Copy link</button></div></dialog>
+<dialog id="shareDialog"><h2>Share clipboard</h2><p class="muted">The access password is never included. Send it separately if this note is protected.</p><div class="row"><button id="whatsappBtn" type="button">WhatsApp</button><button id="emailBtn" type="button">Email</button><button id="nativeShareBtn" class="primary" type="button">Other apps</button><button id="shareClose" type="button">Close</button></div></dialog>
+<dialog id="syncDialog"><h2>Sync recent notes</h2><p class="muted">Use the same private sync code on each device. Anyone with this code can see your recent-note IDs.</p><form id="syncForm"><input id="syncCodeInput" minlength="12" maxlength="100" placeholder="Enter or generate a sync code" autocomplete="off" required><div class="row"><button id="generateSyncBtn" type="button">Generate</button><button id="copySyncBtn" type="button">Copy code</button><button class="primary" type="submit">Enable sync</button></div><span id="syncStatus" class="hint" aria-live="polite"></span><div class="row"><button id="disableSyncBtn" type="button">Disable on this device</button><button id="deleteSyncBtn" class="danger" type="button">Delete synced history</button><button id="syncClose" type="button">Close</button></div></form></dialog>
 
 <script>
 (function () {
@@ -151,7 +155,10 @@
   var path = decodeURIComponent(location.pathname.replace(/^\/+|\/+$/g, ""));
   var VALID_ID = /^(?:\d{1,10}|[A-Za-z0-9_-]{12,64})$/;
   var RECENT_KEY = "clip9.recentNotes.v2";
+  var SYNC_CODE_KEY = "clip9.recentSyncCode";
   var MAX_CHARS = 500000;
+  var syncCode="";
+  try { syncCode=localStorage.getItem(SYNC_CODE_KEY)||""; } catch(e) {}
 
   function safeRecent() {
     try {
@@ -160,9 +167,24 @@
     } catch (e) { return []; }
   }
   function saveRecent(items) { try { localStorage.setItem(RECENT_KEY, JSON.stringify(items.slice(0, 10))); } catch (e) {} }
+  function syncToken(code){return crypto.subtle.digest("SHA-256",new TextEncoder().encode(code)).then(function(buffer){return Array.from(new Uint8Array(buffer),function(b){return b.toString(16).padStart(2,"0");}).join("");});}
+  function recentApi(method,items,code){
+    return syncToken(code||syncCode).then(function(token){return fetch("/.netlify/functions/recent",{method:method,headers:Object.assign({"x-sync-token":token},items?{"content-type":"application/json"}:{}),body:items?JSON.stringify({items:items}):undefined,cache:"no-store"});}).then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||"Sync failed");return d;});});
+  }
+  function pushRecent(items){if(!syncCode)return Promise.resolve();return recentApi("PUT",items||safeRecent()).catch(function(e){if($("syncStatus"))$("syncStatus").textContent="Sync failed: "+e.message;});}
+  function saveAndSync(items){saveRecent(items);return pushRecent(items);}
+  function mergeSyncedRecent(){
+    if(!syncCode)return Promise.resolve();
+    if($("syncStatus"))$("syncStatus").textContent="Syncing…";
+    return recentApi("GET",null).then(function(d){
+      var seen={},merged=safeRecent().concat(d.items||[]).sort(function(a,b){return b.openedAt-a.openedAt;}).filter(function(item){if(seen[item.id])return false;seen[item.id]=true;return true;}).slice(0,10);
+      saveRecent(merged);return pushRecent(merged).then(function(){if($("syncStatus"))$("syncStatus").textContent="Synced successfully.";return merged;});
+    }).catch(function(e){if($("syncStatus"))$("syncStatus").textContent="Sync failed: "+e.message;});
+  }
   function touchRecent(id) {
     var old = safeRecent(), found = old.find(function (x) { return x.id === id; });
     saveRecent([{ id:id, name:found && found.name || "", openedAt:Date.now() }].concat(old.filter(function (x) { return x.id !== id; })));
+    if(syncCode)mergeSyncedRecent();
   }
   function renderRecent() {
     var query = ($("recentSearch").value || "").toLowerCase();
@@ -173,8 +195,8 @@
       var li=document.createElement("li"), a=document.createElement("a"), strong=document.createElement("strong"), small=document.createElement("small"), actions=document.createElement("div"), rename=document.createElement("button"), remove=document.createElement("button");
       li.className="recent-item"; a.className="recent-link"; a.href="/"+item.id; strong.textContent=item.name || "Clipboard "+item.id; small.textContent=item.id+" · "+new Date(item.openedAt).toLocaleString(); a.append(strong,small);
       actions.className="recent-buttons"; rename.className=remove.className="small"; rename.type=remove.type="button"; rename.textContent="Rename"; remove.textContent="Remove";
-      rename.onclick=function(){ var name=prompt("Name this note in your browser:",item.name||""); if(name===null)return; var all=safeRecent(); all.forEach(function(x){if(x.id===item.id)x.name=name.trim().slice(0,80);}); saveRecent(all); renderRecent(); };
-      remove.onclick=function(){ saveRecent(safeRecent().filter(function(x){return x.id!==item.id;})); renderRecent(); };
+      rename.onclick=function(){ var name=prompt("Name this note:",item.name||""); if(name===null)return; var all=safeRecent(); all.forEach(function(x){if(x.id===item.id)x.name=name.trim().slice(0,80);}); saveAndSync(all); renderRecent(); };
+      remove.onclick=function(){ saveAndSync(safeRecent().filter(function(x){return x.id!==item.id;})); renderRecent(); };
       actions.append(rename,remove); li.append(a,actions); $("recentList").appendChild(li);
     });
   }
@@ -198,7 +220,17 @@
     $("goForm").onsubmit=function(e){e.preventDefault();var id=$("idInput").value.trim();if(VALID_ID.test(id))location.href="/"+id;else alert("Enter a 1-10 digit number or a valid Clip9 ID.");};
     $("newBtn").onclick=function(){location.href="/"+randomId();};
     $("recentSearch").oninput=renderRecent;
-    $("clearHistoryBtn").onclick=function(){if(confirm("Remove all recent notes from this browser?")){saveRecent([]);renderRecent();}};
+    $("clearHistoryBtn").onclick=function(){if(confirm("Remove all recent notes"+(syncCode?" from synced devices":" from this browser")+"?")){saveAndSync([]);renderRecent();}};
+    function showSyncState(){$("syncBtn").textContent=syncCode?"Sync: On":"Sync devices";$("syncCodeInput").value=syncCode;$("disableSyncBtn").classList.toggle("hidden",!syncCode);$("deleteSyncBtn").classList.toggle("hidden",!syncCode);}
+    $("syncBtn").onclick=function(){showSyncState();$("syncStatus").textContent=syncCode?"Recent notes are synced on this device.":"";$("syncDialog").showModal();};
+    $("syncClose").onclick=function(){$("syncDialog").close();};
+    $("generateSyncBtn").onclick=function(){$("syncCodeInput").value=randomId();$("syncStatus").textContent="Save this code securely and enter it on your other devices.";};
+    $("copySyncBtn").onclick=function(){var value=$("syncCodeInput").value.trim(),b=this;if(!value){$("syncStatus").textContent="Generate or enter a code first.";return;}copyText(value).then(function(){flash(b,"Copied!");});};
+    $("syncForm").onsubmit=function(e){e.preventDefault();var code=$("syncCodeInput").value.trim();if(code.length<12){$("syncStatus").textContent="Use at least 12 characters.";return;}syncCode=code;try{localStorage.setItem(SYNC_CODE_KEY,syncCode);}catch(err){}showSyncState();mergeSyncedRecent().then(renderRecent);};
+    $("disableSyncBtn").onclick=function(){syncCode="";try{localStorage.removeItem(SYNC_CODE_KEY);}catch(e){}showSyncState();$("syncStatus").textContent="Sync disabled on this device. Local history was kept.";};
+    $("deleteSyncBtn").onclick=function(){if(!syncCode||!confirm("Permanently delete the synced history? Other devices will keep their local copies."))return;var oldCode=syncCode;recentApi("DELETE",null,oldCode).then(function(){syncCode="";try{localStorage.removeItem(SYNC_CODE_KEY);}catch(e){}showSyncState();$("syncStatus").textContent="Synced history deleted.";}).catch(function(e){$("syncStatus").textContent="Delete failed: "+e.message;});};
+    showSyncState();
+    if(syncCode)mergeSyncedRecent().then(renderRecent);
     window.addEventListener("storage",renderRecent);
     return;
   }
@@ -257,10 +289,16 @@
   $("clearBtn").onclick=function(){if(!ta.value||!confirm("Clear all text? The empty note will be saved."))return;ta.value="";dirty=true;updateCounter();save();ta.focus();};
   $("linkBtn").onclick=function(){var b=this;copyText(location.href).then(function(){flash(b,"Link copied!");});};
   $("homeBtn").onclick=function(){location.href="/";};
-  $("deleteBtn").onclick=function(){if(!confirm("Permanently delete this clipboard? This cannot be undone."))return;api("DELETE").then(function(){saveRecent(safeRecent().filter(function(x){return x.id!==id;}));location.href="/";}).catch(function(e){alert("Delete failed: "+e.message);});};
+  $("deleteBtn").onclick=function(){if(!confirm("Permanently delete this clipboard? This cannot be undone."))return;api("DELETE").then(function(){saveAndSync(safeRecent().filter(function(x){return x.id!==id;}));location.href="/";}).catch(function(e){alert("Delete failed: "+e.message);});};
   $("qrBtn").onclick=function(){$("qrImage").src="/.netlify/functions/qr?url="+encodeURIComponent(location.href);$("qrDialog").showModal();};
   $("qrClose").onclick=function(){$("qrDialog").close();};
   $("qrCopy").onclick=function(){var b=this;copyText(location.href).then(function(){flash(b,"Copied!");});};
+  var shareTitle="Clip9 clipboard #"+id,shareMessage="Open this Clip9 clipboard: "+location.href;
+  $("shareBtn").onclick=function(){$("nativeShareBtn").classList.toggle("hidden",!navigator.share);$("shareDialog").showModal();};
+  $("shareClose").onclick=function(){$("shareDialog").close();};
+  $("whatsappBtn").onclick=function(){window.open("https://wa.me/?text="+encodeURIComponent(shareMessage),"_blank","noopener,noreferrer");};
+  $("emailBtn").onclick=function(){location.href="mailto:?subject="+encodeURIComponent(shareTitle)+"&body="+encodeURIComponent(shareMessage+"\n\nIf this clipboard is protected, send its password separately.");};
+  $("nativeShareBtn").onclick=function(){if(navigator.share)navigator.share({title:shareTitle,text:"Open this shared clipboard.",url:location.href}).catch(function(){});};
 
   $("downloadBtn").onclick=function(){
     var ext=$("exportFormat").value,type=ext==="md"?"text/markdown":"text/plain",blob=new Blob([ta.value],{type:type+";charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");
