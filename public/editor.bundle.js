@@ -11287,6 +11287,58 @@
     }
   });
 
+  // node_modules/codemirror/addon/display/rulers.js
+  var require_rulers = __commonJS({
+    "node_modules/codemirror/addon/display/rulers.js"(exports, module) {
+      (function(mod) {
+        if (typeof exports == "object" && typeof module == "object")
+          mod(require_codemirror());
+        else if (typeof define == "function" && define.amd)
+          define(["../../lib/codemirror"], mod);
+        else
+          mod(CodeMirror);
+      })(function(CodeMirror3) {
+        "use strict";
+        CodeMirror3.defineOption("rulers", false, function(cm, val) {
+          if (cm.state.rulerDiv) {
+            cm.state.rulerDiv.parentElement.removeChild(cm.state.rulerDiv);
+            cm.state.rulerDiv = null;
+            cm.off("refresh", drawRulers);
+          }
+          if (val && val.length) {
+            cm.state.rulerDiv = cm.display.lineSpace.parentElement.insertBefore(document.createElement("div"), cm.display.lineSpace);
+            cm.state.rulerDiv.className = "CodeMirror-rulers";
+            drawRulers(cm);
+            cm.on("refresh", drawRulers);
+          }
+        });
+        function drawRulers(cm) {
+          cm.state.rulerDiv.textContent = "";
+          var val = cm.getOption("rulers");
+          var cw = cm.defaultCharWidth();
+          var left = cm.charCoords(CodeMirror3.Pos(cm.firstLine(), 0), "div").left;
+          cm.state.rulerDiv.style.minHeight = cm.display.scroller.offsetHeight + 30 + "px";
+          for (var i = 0; i < val.length; i++) {
+            var elt = document.createElement("div");
+            elt.className = "CodeMirror-ruler";
+            var col, conf = val[i];
+            if (typeof conf == "number") {
+              col = conf;
+            } else {
+              col = conf.column;
+              if (conf.className) elt.className += " " + conf.className;
+              if (conf.color) elt.style.borderColor = conf.color;
+              if (conf.lineStyle) elt.style.borderLeftStyle = conf.lineStyle;
+              if (conf.width) elt.style.borderLeftWidth = conf.width;
+            }
+            elt.style.left = left + col * cw + "px";
+            cm.state.rulerDiv.appendChild(elt);
+          }
+        }
+      });
+    }
+  });
+
   // node_modules/codemirror/mode/javascript/javascript.js
   var require_javascript = __commonJS({
     "node_modules/codemirror/mode/javascript/javascript.js"(exports, module) {
@@ -16101,6 +16153,7 @@
   var import_closebrackets = __toESM(require_closebrackets());
   var import_matchbrackets = __toESM(require_matchbrackets());
   var import_comment = __toESM(require_comment());
+  var import_rulers = __toESM(require_rulers());
   var import_javascript = __toESM(require_javascript());
   var import_xml = __toESM(require_xml());
   var import_css = __toESM(require_css());

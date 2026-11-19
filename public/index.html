@@ -79,6 +79,8 @@
   .CodeMirror-cursor { border-left-color:var(--text); }
   .CodeMirror-selected { background:color-mix(in srgb,var(--accent) 25%,transparent)!important; }
   .cm-s-default .cm-keyword,.cm-s-default .cm-tag { color:#c026d3; }.cm-s-default .cm-string { color:#15803d; }.cm-s-default .cm-number { color:#d97706; }.cm-s-default .cm-comment { color:var(--muted); }.cm-s-default .cm-variable-2,.cm-s-default .cm-attribute { color:#2563eb; }
+  .CodeMirror-ruler.python-indent-ruler { border-left:1px dashed color-mix(in srgb,var(--accent) 38%,transparent); }
+  .python-mode-control { padding:4px 8px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); }
   .editor-shell.fullscreen { position:fixed; inset:0; z-index:1000; border:0; border-radius:0; }
   .editor-shell.fullscreen .CodeMirror,.editor-shell.fullscreen .preview-pane,.editor-shell.fullscreen .editor-panes { height:calc(100vh - 88px); min-height:0; }
   body.focus-mode header,body.focus-mode .settings,body.focus-mode .conflict,body.focus-mode .find-panel,body.focus-mode .under-editor,body.focus-mode main>.row { display:none!important; }
@@ -142,6 +144,7 @@
         <button id="undoBtn" type="button" title="Undo (Ctrl+Z)">↶ Undo</button><button id="redoBtn" type="button" title="Redo (Ctrl+Y)">↷ Redo</button>
         <button id="toolbarCopyBtn" type="button">Copy</button><button id="toolbarImportBtn" type="button">Import</button><button id="toolbarDownloadBtn" type="button">Download</button><button id="toolbarFindBtn" type="button">Find</button>
         <select id="languageSelect" aria-label="Language mode"><option value="text/plain">Plain text</option><option value="markdown">Markdown</option><option value="javascript">JavaScript</option><option value="application/json">JSON</option><option value="htmlmixed">HTML</option><option value="css">CSS</option><option value="python">Python</option></select>
+        <label class="check python-mode-control" title="Use Python highlighting, four-space indentation, and indentation guides"><input id="pythonModeRadio" type="radio" name="quickLanguage"> Python indentation</label>
         <select id="fontSelect" aria-label="Editor font"><option value="mono">Monospace</option><option value="system">System</option><option value="serif">Serif</option></select>
         <button id="fontDownBtn" type="button" title="Decrease font size">A−</button><button id="fontUpBtn" type="button" title="Increase font size">A+</button>
         <select id="lineHeightSelect" aria-label="Line height"><option value="1.35">Compact</option><option value="1.55" selected>Normal</option><option value="1.8">Relaxed</option></select>
@@ -165,7 +168,7 @@
         <div class="editor-pane"><textarea id="text" placeholder="Paste or type here…" spellcheck="false" disabled></textarea></div>
         <article id="previewPane" class="preview-pane" aria-label="Markdown preview"></article>
       </div>
-      <div class="editor-status"><span id="counter" class="hint">0 characters · 0 words · 1 line</span><span id="cursorStatus" class="hint">Ln 1, Col 1</span><span class="hint">Auto-saves and syncs while open.</span></div>
+      <div class="editor-status"><span id="counter" class="hint">0 characters · 0 words · 1 line</span><span id="cursorStatus" class="hint">Ln 1, Col 1</span><span id="indentStatus" class="hint">Indent: 2 spaces</span><span class="hint">Auto-saves and syncs while open.</span></div>
     </section>
     <div class="row">
       <button id="copyBtn" class="primary" type="button">Copy text</button>
@@ -386,12 +389,19 @@
   var editorShell=$("editorShell"),language="text/plain",fontChoice="mono",fontSize=15,lineHeight="1.55",view="edit";
   try{language=localStorage.getItem("clip9.language")||language;fontChoice=localStorage.getItem("clip9.editorFont")||fontChoice;fontSize=Math.min(24,Math.max(12,Number(localStorage.getItem("clip9.fontSize"))||15));lineHeight=localStorage.getItem("clip9.lineHeight")||lineHeight;view=localStorage.getItem("clip9.editorView")||view;}catch(e){}
   function modeFor(value){return value==="application/json"?{name:"javascript",json:true}:value;}
-  function applyLanguage(){$("languageSelect").value=language;cm.setOption("mode",modeFor(language));}
+  function applyLanguage(){
+    var python=language==="python",indent=python?4:2;
+    $("languageSelect").value=language;$("pythonModeRadio").checked=python;
+    cm.setOption("mode",modeFor(language));cm.setOption("indentUnit",indent);cm.setOption("tabSize",indent);
+    cm.setOption("rulers",python?[4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76].map(function(column){return{column:column,className:"python-indent-ruler"};}):[]);
+    $("indentStatus").textContent="Indent: "+indent+" spaces"+(python?" · Python guides on":"");
+  }
   function applyFont(){var fonts={mono:"ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",system:"system-ui, -apple-system, 'Segoe UI', sans-serif",serif:"Georgia, 'Times New Roman', serif"};editorShell.style.setProperty("--editor-font",fonts[fontChoice]);editorShell.style.setProperty("--editor-font-size",fontSize+"px");$("fontSelect").value=fontChoice;}
   function applyLineHeight(){editorShell.style.setProperty("--editor-line-height",lineHeight);$("lineHeightSelect").value=lineHeight;cm.refresh();}
   function applyView(){editorShell.classList.toggle("preview-mode",view==="preview");editorShell.classList.toggle("split-mode",view==="split");$("viewSelect").value=view;renderPreview();setTimeout(function(){cm.refresh();},0);}
   applyLanguage();applyFont();applyLineHeight();applyView();
   $("languageSelect").onchange=function(){language=this.value;try{localStorage.setItem("clip9.language",language);}catch(e){}applyLanguage();};
+  $("pythonModeRadio").onchange=function(){if(this.checked){language="python";try{localStorage.setItem("clip9.language",language);}catch(e){}applyLanguage();cm.focus();}};
   $("fontSelect").onchange=function(){fontChoice=this.value;try{localStorage.setItem("clip9.editorFont",fontChoice);}catch(e){}applyFont();cm.refresh();};
   $("fontDownBtn").onclick=function(){fontSize=Math.max(12,fontSize-1);try{localStorage.setItem("clip9.fontSize",fontSize);}catch(e){}applyFont();cm.refresh();};
   $("fontUpBtn").onclick=function(){fontSize=Math.min(24,fontSize+1);try{localStorage.setItem("clip9.fontSize",fontSize);}catch(e){}applyFont();cm.refresh();};
