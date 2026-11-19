@@ -8,9 +8,12 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <title>Clip9 Shared Clipboard</title>
+<script>try{var savedTheme=localStorage.getItem("clip9.theme");if(savedTheme&&savedTheme!=="system")document.documentElement.dataset.theme=savedTheme;}catch(e){}</script>
 <style>
   :root { --bg:#f4f6fa; --card:#fff; --text:#18202b; --muted:#667085; --border:#d6dce5; --accent:#2563eb; --accent2:#1d4ed8; --ok:#15803d; --warn:#b45309; --danger:#b42318; --soft:#eef4ff; }
   @media (prefers-color-scheme:dark) { :root { --bg:#0d1117; --card:#161b22; --text:#e6edf3; --muted:#9aa4b2; --border:#30363d; --accent:#79a7ff; --accent2:#a8c5ff; --ok:#4ade80; --warn:#fbbf24; --danger:#ff7b72; --soft:#17233a; } }
+  :root[data-theme="light"] { --bg:#f4f6fa; --card:#fff; --text:#18202b; --muted:#667085; --border:#d6dce5; --accent:#2563eb; --accent2:#1d4ed8; --ok:#15803d; --warn:#b45309; --danger:#b42318; --soft:#eef4ff; color-scheme:light; }
+  :root[data-theme="dark"] { --bg:#0d1117; --card:#161b22; --text:#e6edf3; --muted:#9aa4b2; --border:#30363d; --accent:#79a7ff; --accent2:#a8c5ff; --ok:#4ade80; --warn:#fbbf24; --danger:#ff7b72; --soft:#17233a; color-scheme:dark; }
   * { box-sizing:border-box; }
   body { margin:0; min-height:100vh; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
   button,input,select,textarea { font:inherit; }
@@ -52,16 +55,23 @@
   .field { display:grid; gap:3px; font-size:.78rem; color:var(--muted); }
   .field input { width:210px; }
   textarea { flex:1; min-height:52vh; width:100%; resize:vertical; padding:15px; border:1px solid var(--border); border-radius:12px; background:var(--card); color:var(--text); font:15px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  textarea.nowrap { white-space:pre; overflow-wrap:normal; overflow-x:auto; }
   .under-editor { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
   .row { display:flex; gap:8px; flex-wrap:wrap; }
   .conflict { padding:11px 13px; border:1px solid var(--warn); border-radius:10px; background:color-mix(in srgb,var(--warn) 10%,var(--card)); }
+  .find-panel { border:1px solid var(--border); border-radius:12px; background:var(--card); }
+  .find-panel summary { padding:9px 12px; cursor:pointer; color:var(--muted); }
+  .find-controls { display:grid; grid-template-columns:1fr 1fr auto auto auto; gap:7px; padding:0 10px 10px; align-items:center; }
+  .find-controls input[type="text"] { min-width:0; }
+  .check { display:flex; align-items:center; gap:6px; font-size:.82rem; color:var(--muted); white-space:nowrap; }
+  .check input { min-height:auto; }
   dialog { width:min(420px,calc(100% - 30px)); border:1px solid var(--border); border-radius:14px; padding:20px; background:var(--card); color:var(--text); box-shadow:0 20px 70px #0006; }
   dialog::backdrop { background:#0008; }
   dialog h2 { margin-top:0; }
   dialog form { display:grid; gap:12px; }
   dialog input { width:100%; }
   #qrImage { display:block; width:280px; max-width:100%; margin:12px auto; border-radius:8px; background:white; }
-  @media (max-width:600px) { .wrap{padding:12px}.open-form{flex-direction:column}.open-form button{width:100%}.settings{align-items:stretch}.field,.field input,.field select{width:100%}.row button{flex:1}.recent-item{grid-template-columns:1fr}.recent-buttons{justify-content:flex-end} }
+  @media (max-width:700px) { .wrap{padding:12px}.open-form{flex-direction:column}.open-form button{width:100%}.settings{align-items:stretch}.field,.field input,.field select{width:100%}.row button{flex:1}.recent-item{grid-template-columns:1fr}.recent-buttons{justify-content:flex-end}.find-controls{grid-template-columns:1fr 1fr}.find-controls button{width:100%} }
 </style>
 </head>
 <body>
@@ -97,13 +107,31 @@
       <span class="hint">Expiration restarts when text is saved.</span>
     </div>
     <div id="conflict" class="conflict hidden"><strong>Another device changed this note.</strong> Your text has not been overwritten. <button id="loadRemoteBtn" class="small" type="button">Load remote</button> <button id="overwriteBtn" class="small" type="button">Overwrite remote</button></div>
+    <details class="find-panel">
+      <summary>Find and replace</summary>
+      <div class="find-controls">
+        <input id="findInput" type="text" placeholder="Find" aria-label="Find text">
+        <input id="replaceInput" type="text" placeholder="Replace with" aria-label="Replacement text">
+        <button id="findNextBtn" class="small" type="button">Find next</button>
+        <button id="replaceBtn" class="small" type="button">Replace</button>
+        <button id="replaceAllBtn" class="small" type="button">Replace all</button>
+        <label class="check"><input id="matchCase" type="checkbox"> Match case</label>
+        <span id="findResult" class="hint" aria-live="polite"></span>
+      </div>
+    </details>
     <textarea id="text" placeholder="Paste or type here…" spellcheck="false" disabled></textarea>
-    <div class="under-editor"><span id="counter" class="hint">0 / 500,000</span><span class="hint">Auto-saves and syncs while open.</span></div>
+    <div class="under-editor"><span id="counter" class="hint">0 characters · 0 words · 1 line</span><span class="hint">Auto-saves and syncs while open.</span></div>
     <div class="row">
       <button id="copyBtn" class="primary" type="button">Copy text</button>
       <button id="clearBtn" type="button">Clear text</button>
       <button id="linkBtn" type="button">Copy link</button>
       <button id="qrBtn" type="button">QR code</button>
+      <select id="exportFormat" aria-label="Download format"><option value="txt">.txt</option><option value="md">.md</option></select>
+      <button id="downloadBtn" type="button">Download</button>
+      <button id="importBtn" type="button">Import</button>
+      <input id="fileInput" class="hidden" type="file" accept=".txt,.md,text/plain,text/markdown">
+      <button id="wrapBtn" type="button">Wrap: On</button>
+      <button id="themeBtn" type="button">Theme: System</button>
       <button id="homeBtn" type="button">Home</button>
       <button id="deleteBtn" class="danger" type="button">Delete note</button>
     </div>
@@ -180,7 +208,7 @@
   touchRecent(id); $("clip").classList.remove("hidden"); $("clipId").textContent="#"+id; document.title="Clipboard #"+id+" · Clip9";
 
   function setStatus(msg,kind){$("status").textContent=msg;$("dot").className="dot"+(kind?" "+kind:"");}
-  function updateCounter(){$("counter").textContent=ta.value.length.toLocaleString()+" / "+MAX_CHARS.toLocaleString();}
+  function updateCounter(){var chars=ta.value.length,trimmed=ta.value.trim(),words=trimmed?(trimmed.match(/\S+/g)||[]).length:0,lines=ta.value.split("\n").length;$("counter").textContent=chars.toLocaleString()+" / "+MAX_CHARS.toLocaleString()+" characters · "+words.toLocaleString()+" words · "+lines.toLocaleString()+" "+(lines===1?"line":"lines");}
   function renderExpiry(){if(!expiresAt){$("expiry").textContent="Permanent";return;}var ms=expiresAt-Date.now();if(ms<=0){$("expiry").textContent="Expired";return;}var min=Math.ceil(ms/60000),days=Math.floor(min/1440),hours=Math.floor((min%1440)/60);$("expiry").textContent="Expires in "+(days?days+"d ":"")+(hours?hours+"h ":"")+(min%60)+"m";}
   setInterval(renderExpiry,30000);
   function api(method,body,query){return fetch(API+(query||""),{method:method,headers:Object.assign({"x-clip-password":password},body?{"content-type":"application/json"}:{}),body:body?JSON.stringify(body):undefined,cache:"no-store"}).then(function(r){return r.json().catch(function(){return{};}).then(function(d){if(!r.ok){var e=new Error(d.error||"Request failed");e.status=r.status;e.data=d;throw e;}return d;});});}
@@ -199,6 +227,32 @@
 
   $("loadRemoteBtn").onclick=function(){dirty=false;knownVersion=null;$("conflict").classList.add("hidden");poll();};
   $("overwriteBtn").onclick=function(){forceNext=true;$("conflict").classList.add("hidden");save(true);};
+
+  function edited(){ta.dispatchEvent(new Event("input",{bubbles:true}));ta.focus();}
+  function sameText(a,b){return $("matchCase").checked?a===b:a.toLowerCase()===b.toLowerCase();}
+  function findNext(){
+    var needle=$("findInput").value;if(!needle){$("findResult").textContent="Enter text to find.";return false;}
+    var hay=ta.value,searchHay=$("matchCase").checked?hay:hay.toLowerCase(),searchNeedle=$("matchCase").checked?needle:needle.toLowerCase(),start=ta.selectionEnd,index=searchHay.indexOf(searchNeedle,start);
+    if(index<0&&start>0)index=searchHay.indexOf(searchNeedle,0);
+    if(index<0){$("findResult").textContent="No matches.";return false;}
+    ta.focus();ta.setSelectionRange(index,index+needle.length);$("findResult").textContent="Match at character "+(index+1)+".";return true;
+  }
+  $("findNextBtn").onclick=findNext;
+  $("findInput").onkeydown=function(e){if(e.key==="Enter"){e.preventDefault();findNext();}};
+  $("replaceBtn").onclick=function(){
+    var needle=$("findInput").value;if(!needle){$("findResult").textContent="Enter text to find.";return;}
+    var selected=ta.value.slice(ta.selectionStart,ta.selectionEnd);
+    if(!sameText(selected,needle)){findNext();return;}
+    var start=ta.selectionStart,replacement=$("replaceInput").value;ta.setRangeText(replacement,ta.selectionStart,ta.selectionEnd,"end");edited();$("findResult").textContent="Replaced match at character "+(start+1)+".";
+  };
+  $("replaceAllBtn").onclick=function(){
+    var needle=$("findInput").value;if(!needle){$("findResult").textContent="Enter text to find.";return;}
+    var source=ta.value,replacement=$("replaceInput").value,result="",from=0,count=0,hay=$("matchCase").checked?source:source.toLowerCase(),target=$("matchCase").checked?needle:needle.toLowerCase(),index;
+    while((index=hay.indexOf(target,from))!==-1){result+=source.slice(from,index)+replacement;from=index+needle.length;count++;}
+    if(!count){$("findResult").textContent="No matches.";return;}
+    ta.value=result+source.slice(from);edited();$("findResult").textContent="Replaced "+count+" "+(count===1?"match":"matches")+".";
+  };
+
   $("copyBtn").onclick=function(){var b=this;copyText(ta.value).then(function(){flash(b,"Copied!");},function(){flash(b,"Copy failed");});};
   $("clearBtn").onclick=function(){if(!ta.value||!confirm("Clear all text? The empty note will be saved."))return;ta.value="";dirty=true;updateCounter();save();ta.focus();};
   $("linkBtn").onclick=function(){var b=this;copyText(location.href).then(function(){flash(b,"Link copied!");});};
@@ -207,6 +261,33 @@
   $("qrBtn").onclick=function(){$("qrImage").src="/.netlify/functions/qr?url="+encodeURIComponent(location.href);$("qrDialog").showModal();};
   $("qrClose").onclick=function(){$("qrDialog").close();};
   $("qrCopy").onclick=function(){var b=this;copyText(location.href).then(function(){flash(b,"Copied!");});};
+
+  $("downloadBtn").onclick=function(){
+    var ext=$("exportFormat").value,type=ext==="md"?"text/markdown":"text/plain",blob=new Blob([ta.value],{type:type+";charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+    a.href=url;a.download="clip9-"+id+"."+ext;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},1000);
+  };
+  $("importBtn").onclick=function(){$("fileInput").value="";$("fileInput").click();};
+  $("fileInput").onchange=function(){
+    var file=this.files&&this.files[0];if(!file)return;
+    if(file.size>MAX_CHARS*4){alert("That file is too large. The note limit is "+MAX_CHARS.toLocaleString()+" characters.");return;}
+    file.text().then(function(content){
+      if(content.length>MAX_CHARS){alert("That file exceeds the "+MAX_CHARS.toLocaleString()+" character limit.");return;}
+      if(ta.value&&!confirm("Replace the current editor text with "+file.name+"?"))return;
+      ta.value=content;edited();
+    }).catch(function(){alert("The file could not be read.");});
+  };
+
+  var wrapOn=true;
+  try{wrapOn=localStorage.getItem("clip9.wrap")!=="off";}catch(e){}
+  function applyWrap(){ta.classList.toggle("nowrap",!wrapOn);ta.wrap=wrapOn?"soft":"off";$("wrapBtn").textContent="Wrap: "+(wrapOn?"On":"Off");}
+  applyWrap();
+  $("wrapBtn").onclick=function(){wrapOn=!wrapOn;try{localStorage.setItem("clip9.wrap",wrapOn?"on":"off");}catch(e){}applyWrap();};
+
+  var theme="system";
+  try{theme=localStorage.getItem("clip9.theme")||"system";}catch(e){}
+  function applyTheme(){if(theme==="system")delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=theme;$("themeBtn").textContent="Theme: "+theme.charAt(0).toUpperCase()+theme.slice(1);}
+  applyTheme();
+  $("themeBtn").onclick=function(){theme=theme==="system"?"light":theme==="light"?"dark":"system";try{localStorage.setItem("clip9.theme",theme);}catch(e){}applyTheme();};
   updateCounter();
 })();
 </script>
