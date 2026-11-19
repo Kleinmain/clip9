@@ -9,6 +9,8 @@ A tiny online clipboard for Netlify. Open `yoursite.netlify.app/2357` on any dev
 - The homepage shows the last 10 clipboard numbers opened in that browser.
 - New notes use unguessable links and can be protected with an access password.
 - Optional expiration, QR sharing, conflict protection, search, local names, and installable-app support are included.
+- Share through WhatsApp, email, or the device share menu.
+- Optionally synchronize recent-note history across devices with a private sync code.
 - Access passwords are available, but notes are not end-to-end encrypted. Don't store critical secrets.
 - Storage: Netlify Blobs (built in, no database to set up). Backend: Netlify Functions.
 
@@ -24,7 +26,8 @@ shared-clipboard/
 │   └── sw.js                     # offline app shell
 └── netlify/functions/
     ├── clip.mjs                  # clipboard API and Netlify Blobs storage
-    └── qr.mjs                    # same-origin QR code generator
+    ├── qr.mjs                    # same-origin QR code generator
+    └── recent.mjs                # optional cross-device recent history
 ```
 
 ## Deploy
