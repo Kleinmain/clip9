@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shared Clipboard</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a1d21; --muted: #6b7280;
+    --border: #d9dde3; --accent: #2563eb; --accent-text: #ffffff; --ok: #16a34a; --warn: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1216; --card: #171b21; --text: #e8eaed; --muted: #8b93a1;
+      --border: #2a313b; --accent: #5b8def; --accent-text: #0b0e12; --ok: #4ade80; --warn: #fbbf24;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 16px; min-height: 100%; display: flex; flex-direction: column; gap: 12px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 1.1rem; margin: 0; font-weight: 650; }
+  h1 span { color: var(--accent); }
+  .meta { display: flex; gap: 14px; align-items: center; color: var(--muted); font-size: .85rem; flex-wrap: wrap; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-right: 6px; }
+  .dot.ok { background: var(--ok); } .dot.busy { background: var(--warn); }
+  textarea {
+    flex: 1; min-height: 55vh; width: 100%; resize: vertical; padding: 14px;
+    background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 12px;
+    font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; outline: none;
+  }
+  textarea:focus { border-color: var(--accent); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    font: inherit; padding: 9px 16px; border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+  }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button:hover { filter: brightness(1.06); }
+  .hint { color: var(--muted); font-size: .8rem; }
+  /* landing */
+  .landing { margin: auto; text-align: center; max-width: 420px; width: 100%; }
+  .landing h1 { font-size: 1.6rem; margin-bottom: 6px; }
+  .landing p { color: var(--muted); margin-top: 0; }
+  .landing form { display: flex; gap: 8px; margin: 18px 0 10px; }
+  .landing input {
+    flex: 1; min-width: 0; padding: 10px 12px; font: inherit; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--card); color: var(--text); outline: none;
+  }
+  .landing input:focus { border-color: var(--accent); }
+  .recent { margin-top: 24px; text-align: left; }
+  .recent h2 { font-size: 1rem; margin-bottom: 6px; }
+  .recent ol { list-style: none; padding: 0; display: grid; gap: 8px; }
+  .recent a { display: block; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--accent); text-decoration: none; }
+  .recent a:hover, .recent a:focus-visible { border-color: var(--accent); text-decoration: underline; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Landing page (path "/") -->
+  <div id="landing" class="landing hidden">
+    <h1>Shared <span>Clipboard</span></h1>
+    <p>Pick a number. Anyone who opens the same number sees the same text.</p>
+    <form id="goForm">
+      <input id="numInput" inputmode="numeric" pattern="\d{1,10}" maxlength="10" placeholder="e.g. 2357" autocomplete="off" required>
+      <button class="primary" type="submit">Open</button>
+    </form>
+    <button id="randomBtn" type="button">Generate a random number</button>
+    <section class="recent" aria-labelledby="recentHeading">
+      <h2 id="recentHeading">Recently opened notes</h2>
+      <p class="hint">Your last 10 notes opened in this browser, newest first.</p>
+      <ol id="recentList"></ol>
+      <p id="recentEmpty" class="hint">No notes opened yet.</p>
+    </section>
+    <p class="hint" style="margin-top:18px">Clipboards are permanent and not private: anyone who knows the number can read and edit them.</p>
+  </div>
+
+  <!-- Clipboard page (path "/<number>") -->
+  <div id="clip" class="hidden" style="display:contents">
+    <header>
+      <h1>Clipboard <span id="clipId"></span></h1>
+      <div class="meta">
+        <span><span id="dot" class="dot"></span><span id="status">Loading…</span></span>
+        <span id="expiry"></span>
+      </div>
+    </header>
+    <textarea id="text" placeholder="Paste or type here. Anyone with this link sees the same text." spellcheck="false" disabled></textarea>
+    <div class="row">
+      <button id="copyBtn" class="primary" type="button">Copy to clipboard</button>
+      <button id="clearBtn" type="button">Clear</button>
+      <button id="linkBtn" type="button">Copy link</button>
+      <button id="homeBtn" type="button">Other clipboard</button>
+    </div>
+    <div class="hint">Syncs automatically every couple of seconds. Use Clear to delete this clipboard.</div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var path = location.pathname.replace(/^\/+|\/+$/g, "");
+  var RECENT_KEY = "clip9.recentNotes";
+
+  function readRecent() {
+    try {
+      var items = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]");
+      if (!Array.isArray(items)) return [];
+      return items.filter(function (item, index) {
+        return typeof item === "string" && /^\d{1,10}$/.test(item) && items.indexOf(item) === index;
+      }).slice(0, 10);
+    } catch (e) { return []; }
+  }
+
+  function renderRecent() {
+    var items = readRecent();
+    $("recentList").textContent = "";
+    $("recentEmpty").classList.toggle("hidden", items.length > 0);
+    items.forEach(function (number) {
+      var li = document.createElement("li");
+      var link = document.createElement("a");
+      link.href = "/" + number;
+      link.textContent = "Clipboard #" + number;
+      li.appendChild(link);
+      $("recentList").appendChild(li);
+    });
+  }
+
+  // ---------- Landing ----------
+  if (!/^\d{1,10}$/.test(path)) {
+    $("landing").classList.remove("hidden");
+    renderRecent();
+    window.addEventListener("pageshow", renderRecent);
+    window.addEventListener("storage", function (e) {
+      if (e.key === RECENT_KEY || e.key === null) renderRecent();
+    });
+    $("goForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var n = $("numInput").value.trim();
+      if (/^\d{1,10}$/.test(n)) location.href = "/" + n;
+    });
+    $("randomBtn").addEventListener("click", function () {
+      location.href = "/" + (Math.floor(Math.random() * 900000) + 100000);
+    });
+    return;
+  }
+
+  // ---------- Clipboard ----------
+  var id = path;
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify([id].concat(readRecent().filter(function (number) {
+      return number !== id;
+    })).slice(0, 10)));
+  } catch (e) { /* Notes still work when browser storage is unavailable. */ }
+  var API = "/.netlify/functions/clip?id=" + encodeURIComponent(id);
+  var POLL_MS = 2000, SAVE_DELAY_MS = 600;
+
+  $("clip").classList.remove("hidden");
+  $("clipId").textContent = "#" + id;
+  document.title = "Clipboard #" + id;
+
+  var ta = $("text");
+  var knownVersion = null;   // last server version we have applied or saved
+  var expiresAt = null;
+  var dirty = false;         // local edits not yet saved
+  var saving = false;
+  var saveTimer = null;
+
+  function setStatus(msg, kind) {
+    $("status").textContent = msg;
+    $("dot").className = "dot" + (kind ? " " + kind : "");
+  }
+
+  function renderExpiry() {
+    var el = $("expiry");
+    if (!expiresAt) { el.textContent = ""; return; }
+    var ms = expiresAt - Date.now();
+    if (ms <= 0) { el.textContent = "Expired"; return; }
+    var m = Math.floor(ms / 60000), h = Math.floor(m / 60);
+    el.textContent = "Expires in " + (h ? h + "h " : "") + (m % 60) + "m";
+  }
+  setInterval(renderExpiry, 15000);
+
+  function api(method, body, query) {
+    return fetch(API + (query || ""), {
+      method: method,
+      headers: body ? { "content-type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      cache: "no-store"
+    }).then(function (r) {
+      return r.json().then(function (d) {
+        if (!r.ok) throw new Error(d.error || "Request failed");
+        return d;
+      });
+    });
+  }
+
+  function applyRemote(d) {
+    var pos = ta.selectionStart;
+    ta.value = d.text;
+    try { ta.setSelectionRange(pos, pos); } catch (e) {}
+    knownVersion = d.version;
+  }
+
+  function save() {
+    clearTimeout(saveTimer);
+    if (saving) { saveTimer = setTimeout(save, 300); return; }
+    var sent = ta.value;
+    saving = true;
+    setStatus("Saving…", "busy");
+    api("PUT", { text: sent }).then(function (d) {
+      knownVersion = d.version;
+      expiresAt = d.expiresAt;
+      if (ta.value === sent) { dirty = false; setStatus("Saved", "ok"); }
+      else { save(); }
+      renderExpiry();
+    }).catch(function (e) {
+      setStatus("Save failed: " + e.message, "");
+      saveTimer = setTimeout(save, 3000); // retry
+    }).then(function () { saving = false; });
+  }
+
+  ta.addEventListener("input", function () {
+    dirty = true;
+    setStatus("Saving…", "busy");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, SAVE_DELAY_MS);
+  });
+
+  function poll() {
+    if (dirty || saving) return;
+    var q = knownVersion === null ? "" : "&since=" + knownVersion;
+    api("GET", null, q).then(function (d) {
+      if (dirty || saving) return; // user started typing meanwhile
+      expiresAt = d.expiresAt;
+      if (d.changed) {
+        applyRemote(d);
+        setStatus(knownVersion === 0 ? "Empty" : "Synced", "ok");
+      } else if ($("status").textContent === "Loading…") {
+        setStatus("Synced", "ok");
+      }
+      ta.disabled = false;
+      renderExpiry();
+    }).catch(function () { setStatus("Offline, retrying…", ""); });
+  }
+
+  function scheduleLoop() {
+    poll();
+    setTimeout(scheduleLoop, document.hidden ? POLL_MS * 3 : POLL_MS);
+  }
+  scheduleLoop();
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) poll(); });
+
+  // ---------- Buttons ----------
+  function copyText(str) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(str);
+    return new Promise(function (res, rej) {
+      var t = document.createElement("textarea");
+      t.value = str; t.style.position = "fixed"; t.style.opacity = "0";
+      document.body.appendChild(t); t.select();
+      try { document.execCommand("copy") ? res() : rej(); } catch (e) { rej(e); }
+      document.body.removeChild(t);
+    });
+  }
+  function flash(btn, msg) {
+    var old = btn.textContent; btn.textContent = msg;
+    setTimeout(function () { btn.textContent = old; }, 1200);
+  }
+
+  $("copyBtn").addEventListener("click", function () {
+    var b = this;
+    copyText(ta.value).then(function () { flash(b, "Copied!"); }, function () { flash(b, "Copy failed"); });
+  });
+  $("linkBtn").addEventListener("click", function () {
+    var b = this;
+    copyText(location.href).then(function () { flash(b, "Link copied!"); }, function () { flash(b, "Copy failed"); });
+  });
+  $("clearBtn").addEventListener("click", function () {
+    if (!ta.value) return;
+    ta.value = ""; dirty = true; save(); ta.focus();
+  });
+  $("homeBtn").addEventListener("click", function () { location.href = "/"; });
+})();
+</script>
+</body>
+</html>
