@@ -79,7 +79,7 @@
   .CodeMirror-cursor { border-left-color:var(--text); }
   .CodeMirror-selected { background:color-mix(in srgb,var(--accent) 25%,transparent)!important; }
   .cm-s-default .cm-keyword,.cm-s-default .cm-tag { color:#c026d3; }.cm-s-default .cm-string { color:#15803d; }.cm-s-default .cm-number { color:#d97706; }.cm-s-default .cm-comment { color:var(--muted); }.cm-s-default .cm-variable-2,.cm-s-default .cm-attribute { color:#2563eb; }
-  .CodeMirror-ruler.python-indent-ruler { border-left:1px dashed color-mix(in srgb,var(--accent) 38%,transparent); }
+  .cm-python-indent-guide { box-shadow:inset -1px 0 color-mix(in srgb,var(--accent) 48%,transparent); }
   .python-mode-control { padding:4px 8px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); }
   .editor-shell.fullscreen { position:fixed; inset:0; z-index:1000; border:0; border-radius:0; }
   .editor-shell.fullscreen .CodeMirror,.editor-shell.fullscreen .preview-pane,.editor-shell.fullscreen .editor-panes { height:calc(100vh - 88px); min-height:0; }
@@ -144,7 +144,7 @@
         <button id="undoBtn" type="button" title="Undo (Ctrl+Z)">↶ Undo</button><button id="redoBtn" type="button" title="Redo (Ctrl+Y)">↷ Redo</button>
         <button id="toolbarCopyBtn" type="button">Copy</button><button id="toolbarImportBtn" type="button">Import</button><button id="toolbarDownloadBtn" type="button">Download</button><button id="toolbarFindBtn" type="button">Find</button>
         <select id="languageSelect" aria-label="Language mode"><option value="text/plain">Plain text</option><option value="markdown">Markdown</option><option value="javascript">JavaScript</option><option value="application/json">JSON</option><option value="htmlmixed">HTML</option><option value="css">CSS</option><option value="python">Python</option></select>
-        <label class="check python-mode-control" title="Use Python highlighting, four-space indentation, and indentation guides"><input id="pythonModeRadio" type="radio" name="quickLanguage"> Python indentation</label>
+        <label class="check python-mode-control" title="Use Python highlighting, four-space indentation, and per-line indentation guides"><input id="pythonModeRadio" type="radio" name="quickLanguage"> Python indentation</label>
         <select id="fontSelect" aria-label="Editor font"><option value="mono">Monospace</option><option value="system">System</option><option value="serif">Serif</option></select>
         <button id="fontDownBtn" type="button" title="Decrease font size">A−</button><button id="fontUpBtn" type="button" title="Increase font size">A+</button>
         <select id="lineHeightSelect" aria-label="Line height"><option value="1.35">Compact</option><option value="1.55" selected>Normal</option><option value="1.8">Relaxed</option></select>
@@ -287,6 +287,8 @@
   var id=path, API="/.netlify/functions/clip?id="+encodeURIComponent(id), ta=$("text");
   var CodeMirror=window.Clip9Editor.CodeMirror,suppressEditorEvent=false;
   var cm=CodeMirror.fromTextArea(ta,{lineNumbers:true,lineWrapping:true,mode:"text/plain",readOnly:true,autoCloseBrackets:true,matchBrackets:true,indentUnit:2,tabSize:2,indentWithTabs:false,extraKeys:{"Ctrl-/":"toggleComment","Cmd-/":"toggleComment","Tab":"indentMore","Shift-Tab":"indentLess"}});
+  var pythonIndentOverlay={token:function(stream){if(stream.match("    "))return"python-indent-guide";if(stream.peek()==="\t"){stream.next();return"python-indent-guide";}stream.skipToEnd();return null;}};
+  var pythonOverlayActive=false;
   function posIndex(pos){return cm.indexFromPos(pos);}
   function indexPos(index){return cm.posFromIndex(Math.max(0,index));}
   Object.defineProperty(ta,"value",{configurable:true,get:function(){return cm.getValue();},set:function(value){suppressEditorEvent=true;cm.setValue(String(value));suppressEditorEvent=false;}});
@@ -393,7 +395,7 @@
     var python=language==="python",indent=python?4:2;
     $("languageSelect").value=language;$("pythonModeRadio").checked=python;
     cm.setOption("mode",modeFor(language));cm.setOption("indentUnit",indent);cm.setOption("tabSize",indent);
-    cm.setOption("rulers",python?[4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76].map(function(column){return{column:column,className:"python-indent-ruler"};}):[]);
+    if(python&&!pythonOverlayActive){cm.addOverlay(pythonIndentOverlay);pythonOverlayActive=true;}else if(!python&&pythonOverlayActive){cm.removeOverlay(pythonIndentOverlay);pythonOverlayActive=false;}
     $("indentStatus").textContent="Indent: "+indent+" spaces"+(python?" · Python guides on":"");
   }
   function applyFont(){var fonts={mono:"ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",system:"system-ui, -apple-system, 'Segoe UI', sans-serif",serif:"Georgia, 'Times New Roman', serif"};editorShell.style.setProperty("--editor-font",fonts[fontChoice]);editorShell.style.setProperty("--editor-font-size",fontSize+"px");$("fontSelect").value=fontChoice;}
