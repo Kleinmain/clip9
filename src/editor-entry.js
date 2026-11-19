@@ -3,7 +3,6 @@ import "codemirror/lib/codemirror.css";
 import "codemirror/addon/edit/closebrackets";
 import "codemirror/addon/edit/matchbrackets";
 import "codemirror/addon/comment/comment";
-import "codemirror/addon/display/rulers";
 import "codemirror/mode/javascript/javascript";
 import "codemirror/mode/xml/xml";
 import "codemirror/mode/css/css";
