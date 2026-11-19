@@ -4,11 +4,13 @@ A tiny online clipboard for Netlify. Open `yoursite.netlify.app/2357` on any dev
 
 - Number in the URL = clipboard ID (1 to 10 digits). A new number is a fresh, empty clipboard.
 - `/` shows a page to type or generate a number.
-- Auto-saves as you type, auto-syncs by polling every 2 seconds.
+- Auto-saves as you type and syncs while the page is open.
 - Clipboards remain stored until someone clears them.
 - The homepage shows the last 10 clipboard numbers opened in that browser.
-- No password. Anyone who knows or guesses the number can read and edit it, so don't store secrets.
-- Storage: Netlify Blobs (built in, no database to set up). Backend: one Netlify Function.
+- New notes use unguessable links and can be protected with an access password.
+- Optional expiration, QR sharing, conflict protection, search, local names, and installable-app support are included.
+- Access passwords are available, but notes are not end-to-end encrypted. Don't store critical secrets.
+- Storage: Netlify Blobs (built in, no database to set up). Backend: Netlify Functions.
 
 ## Folder structure
 
@@ -17,9 +19,12 @@ shared-clipboard/
 ├── netlify.toml                  # publish dir, functions dir, /<number> rewrite
 ├── package.json                  # depends on @netlify/blobs
 ├── public/
-│   └── index.html                # the whole front end
+│   ├── index.html                # the whole front end
+│   ├── manifest.webmanifest      # installable app metadata
+│   └── sw.js                     # offline app shell
 └── netlify/functions/
-    └── clip.mjs                  # GET/PUT API, stores text in Netlify Blobs
+    ├── clip.mjs                  # clipboard API and Netlify Blobs storage
+    └── qr.mjs                    # same-origin QR code generator
 ```
 
 ## Deploy
@@ -60,11 +65,7 @@ In `netlify/functions/clip.mjs`:
 
 - `MAX_CHARS` is the size limit (default 500,000 characters).
 
-In `public/index.html`:
-
-- `POLL_MS` is the sync interval (default 2000 ms).
-
 ## Notes
 
 - If two people type at the same moment, the last save wins. The page does not merge edits.
-- Netlify Functions and Blobs have free-tier limits; with polling every 2 seconds, each open tab makes about 30 requests a minute. Fine for personal use, but close tabs you don't need.
+- Netlify Functions and Blobs have free-tier limits. Active tabs poll every 5 seconds and background tabs every 30 seconds.

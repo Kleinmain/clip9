@@ -4,6 +4,7 @@
   "private": true,
   "description": "A shared online clipboard keyed by a number in the URL. Runs on Netlify Functions + Netlify Blobs.",
   "dependencies": {
-    "@netlify/blobs": "^8.1.0"
+    "@netlify/blobs": "^8.1.0",
+    "qrcode": "^1.5.4"
   }
 }
