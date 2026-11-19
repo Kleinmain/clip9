@@ -11,6 +11,7 @@ A tiny online clipboard for Netlify. Open `yoursite.netlify.app/2357` on any dev
 - Optional expiration, QR sharing, conflict protection, search, local names, and installable-app support are included.
 - Share through WhatsApp, email, or the device share menu.
 - Optionally synchronize recent-note history across devices with a private sync code.
+- CodeMirror-powered editor with line numbers, syntax modes, formatting controls, fullscreen/focus modes, and sanitized Markdown preview.
 - Access passwords are available, but notes are not end-to-end encrypted. Don't store critical secrets.
 - Storage: Netlify Blobs (built in, no database to set up). Backend: Netlify Functions.
 
@@ -20,6 +21,7 @@ A tiny online clipboard for Netlify. Open `yoursite.netlify.app/2357` on any dev
 shared-clipboard/
 ├── netlify.toml                  # publish dir, functions dir, /<number> rewrite
 ├── package.json                  # depends on @netlify/blobs
+├── src/editor-entry.js           # editor bundle source
 ├── public/
 │   ├── index.html                # the whole front end
 │   ├── manifest.webmanifest      # installable app metadata
