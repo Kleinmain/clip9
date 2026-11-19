@@ -7,6 +7,7 @@
 <meta name="description" content="A fast shared clipboard for moving text between devices.">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/editor.bundle.css">
 <title>Clip9 Shared Clipboard</title>
 <script>try{var savedTheme=localStorage.getItem("clip9.theme");if(savedTheme&&savedTheme!=="system")document.documentElement.dataset.theme=savedTheme;}catch(e){}</script>
 <style>
@@ -56,6 +57,34 @@
   .field input { width:210px; }
   textarea { flex:1; min-height:52vh; width:100%; resize:vertical; padding:15px; border:1px solid var(--border); border-radius:12px; background:var(--card); color:var(--text); font:15px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
   textarea.nowrap { white-space:pre; overflow-wrap:normal; overflow-x:auto; }
+  .editor-shell { --editor-font-size:15px; --editor-line-height:1.55; border:1px solid var(--border); border-radius:14px; overflow:hidden; background:var(--card); box-shadow:0 8px 24px color-mix(in srgb,var(--text) 7%,transparent); }
+  .editor-toolbar { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:8px; border-bottom:1px solid var(--border); background:color-mix(in srgb,var(--card) 94%,var(--accent) 6%); }
+  .editor-toolbar button,.editor-toolbar select { min-height:34px; padding:5px 9px; font-size:.82rem; }
+  .toolbar-spacer { flex:1; }
+  .editor-panes { display:grid; min-height:52vh; }
+  .editor-pane,.preview-pane { min-width:0; }
+  .preview-pane { display:none; min-height:52vh; padding:18px 24px; overflow:auto; background:var(--card); color:var(--text); }
+  .preview-pane pre { overflow:auto; padding:12px; border-radius:9px; background:var(--bg); }
+  .preview-pane code { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  .preview-pane img { max-width:100%; }
+  .preview-pane a { color:var(--accent); }
+  .editor-shell.preview-mode .editor-pane { display:none; }
+  .editor-shell.preview-mode .preview-pane { display:block; }
+  .editor-shell.split-mode .editor-panes { grid-template-columns:1fr 1fr; }
+  .editor-shell.split-mode .preview-pane { display:block; border-left:1px solid var(--border); }
+  .editor-status { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:6px 11px; border-top:1px solid var(--border); background:var(--bg); }
+  .CodeMirror { height:52vh; min-height:360px; background:var(--card); color:var(--text); font-size:var(--editor-font-size); line-height:var(--editor-line-height); font-family:var(--editor-font,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace); }
+  .CodeMirror-gutters { background:var(--bg); border-color:var(--border); }
+  .CodeMirror-linenumber { color:var(--muted); }
+  .CodeMirror-cursor { border-left-color:var(--text); }
+  .CodeMirror-selected { background:color-mix(in srgb,var(--accent) 25%,transparent)!important; }
+  .cm-s-default .cm-keyword,.cm-s-default .cm-tag { color:#c026d3; }.cm-s-default .cm-string { color:#15803d; }.cm-s-default .cm-number { color:#d97706; }.cm-s-default .cm-comment { color:var(--muted); }.cm-s-default .cm-variable-2,.cm-s-default .cm-attribute { color:#2563eb; }
+  .editor-shell.fullscreen { position:fixed; inset:0; z-index:1000; border:0; border-radius:0; }
+  .editor-shell.fullscreen .CodeMirror,.editor-shell.fullscreen .preview-pane,.editor-shell.fullscreen .editor-panes { height:calc(100vh - 88px); min-height:0; }
+  body.focus-mode header,body.focus-mode .settings,body.focus-mode .conflict,body.focus-mode .find-panel,body.focus-mode .under-editor,body.focus-mode main>.row { display:none!important; }
+  body.focus-mode .wrap { width:100%; max-width:none; padding:0; }
+  body.focus-mode .editor-shell { border-radius:0; min-height:100vh; }
+  body.focus-mode .CodeMirror,body.focus-mode .preview-pane { height:calc(100vh - 82px); }
   .under-editor { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
   .row { display:flex; gap:8px; flex-wrap:wrap; }
   .conflict { padding:11px 13px; border:1px solid var(--warn); border-radius:10px; background:color-mix(in srgb,var(--warn) 10%,var(--card)); }
@@ -71,7 +100,7 @@
   dialog form { display:grid; gap:12px; }
   dialog input { width:100%; }
   #qrImage { display:block; width:280px; max-width:100%; margin:12px auto; border-radius:8px; background:white; }
-  @media (max-width:700px) { .wrap{padding:12px}.open-form{flex-direction:column}.open-form button{width:100%}.settings{align-items:stretch}.field,.field input,.field select{width:100%}.row button{flex:1}.recent-item{grid-template-columns:1fr}.recent-buttons{justify-content:flex-end}.find-controls{grid-template-columns:1fr 1fr}.find-controls button{width:100%} }
+  @media (max-width:700px) { .wrap{padding:12px}.open-form{flex-direction:column}.open-form button{width:100%}.settings{align-items:stretch}.field,.field input,.field select{width:100%}.row button{flex:1}.recent-item{grid-template-columns:1fr}.recent-buttons{justify-content:flex-end}.find-controls{grid-template-columns:1fr 1fr}.find-controls button{width:100%}.editor-shell.split-mode .editor-panes{grid-template-columns:1fr}.editor-shell.split-mode .preview-pane{border-left:0;border-top:1px solid var(--border)}.toolbar-spacer{display:none} }
 </style>
 </head>
 <body>
@@ -108,20 +137,36 @@
       <span class="hint">Expiration restarts when text is saved.</span>
     </div>
     <div id="conflict" class="conflict hidden"><strong>Another device changed this note.</strong> Your text has not been overwritten. <button id="loadRemoteBtn" class="small" type="button">Load remote</button> <button id="overwriteBtn" class="small" type="button">Overwrite remote</button></div>
-    <details class="find-panel">
-      <summary>Find and replace</summary>
-      <div class="find-controls">
-        <input id="findInput" type="text" placeholder="Find" aria-label="Find text">
-        <input id="replaceInput" type="text" placeholder="Replace with" aria-label="Replacement text">
-        <button id="findNextBtn" class="small" type="button">Find next</button>
-        <button id="replaceBtn" class="small" type="button">Replace</button>
-        <button id="replaceAllBtn" class="small" type="button">Replace all</button>
-        <label class="check"><input id="matchCase" type="checkbox"> Match case</label>
-        <span id="findResult" class="hint" aria-live="polite"></span>
+    <section id="editorShell" class="editor-shell">
+      <div class="editor-toolbar" role="toolbar" aria-label="Editor controls">
+        <button id="undoBtn" type="button" title="Undo (Ctrl+Z)">↶ Undo</button><button id="redoBtn" type="button" title="Redo (Ctrl+Y)">↷ Redo</button>
+        <button id="toolbarCopyBtn" type="button">Copy</button><button id="toolbarImportBtn" type="button">Import</button><button id="toolbarDownloadBtn" type="button">Download</button><button id="toolbarFindBtn" type="button">Find</button>
+        <select id="languageSelect" aria-label="Language mode"><option value="text/plain">Plain text</option><option value="markdown">Markdown</option><option value="javascript">JavaScript</option><option value="application/json">JSON</option><option value="htmlmixed">HTML</option><option value="css">CSS</option><option value="python">Python</option></select>
+        <select id="fontSelect" aria-label="Editor font"><option value="mono">Monospace</option><option value="system">System</option><option value="serif">Serif</option></select>
+        <button id="fontDownBtn" type="button" title="Decrease font size">A−</button><button id="fontUpBtn" type="button" title="Increase font size">A+</button>
+        <select id="lineHeightSelect" aria-label="Line height"><option value="1.35">Compact</option><option value="1.55" selected>Normal</option><option value="1.8">Relaxed</option></select>
+        <span class="toolbar-spacer"></span>
+        <select id="viewSelect" aria-label="Editor view"><option value="edit">Editor</option><option value="preview">Preview</option><option value="split">Split view</option></select>
+        <button id="fullscreenBtn" type="button">Full screen</button><button id="focusBtn" type="button">Focus</button>
       </div>
-    </details>
-    <textarea id="text" placeholder="Paste or type here…" spellcheck="false" disabled></textarea>
-    <div class="under-editor"><span id="counter" class="hint">0 characters · 0 words · 1 line</span><span class="hint">Auto-saves and syncs while open.</span></div>
+      <details id="findPanel" class="find-panel">
+        <summary>Find and replace</summary>
+        <div class="find-controls">
+          <input id="findInput" type="text" placeholder="Find" aria-label="Find text">
+          <input id="replaceInput" type="text" placeholder="Replace with" aria-label="Replacement text">
+          <button id="findNextBtn" class="small" type="button">Find next</button>
+          <button id="replaceBtn" class="small" type="button">Replace</button>
+          <button id="replaceAllBtn" class="small" type="button">Replace all</button>
+          <label class="check"><input id="matchCase" type="checkbox"> Match case</label>
+          <span id="findResult" class="hint" aria-live="polite"></span>
+        </div>
+      </details>
+      <div class="editor-panes">
+        <div class="editor-pane"><textarea id="text" placeholder="Paste or type here…" spellcheck="false" disabled></textarea></div>
+        <article id="previewPane" class="preview-pane" aria-label="Markdown preview"></article>
+      </div>
+      <div class="editor-status"><span id="counter" class="hint">0 characters · 0 words · 1 line</span><span id="cursorStatus" class="hint">Ln 1, Col 1</span><span class="hint">Auto-saves and syncs while open.</span></div>
+    </section>
     <div class="row">
       <button id="copyBtn" class="primary" type="button">Copy text</button>
       <button id="clearBtn" type="button">Clear text</button>
@@ -148,6 +193,7 @@
 <dialog id="shareDialog"><h2>Share clipboard</h2><p class="muted">The access password is never included. Send it separately if this note is protected.</p><div class="row"><button id="whatsappBtn" type="button">WhatsApp</button><button id="emailBtn" type="button">Email</button><button id="nativeShareBtn" class="primary" type="button">Other apps</button><button id="shareClose" type="button">Close</button></div></dialog>
 <dialog id="syncDialog"><h2>Sync recent notes</h2><p class="muted">Use the same private sync code on each device. Anyone with this code can see your recent-note IDs.</p><form id="syncForm"><input id="syncCodeInput" minlength="12" maxlength="100" placeholder="Enter or generate a sync code" autocomplete="off" required><div class="row"><button id="generateSyncBtn" type="button">Generate</button><button id="copySyncBtn" type="button">Copy code</button><button class="primary" type="submit">Enable sync</button></div><span id="syncStatus" class="hint" aria-live="polite"></span><div class="row"><button id="disableSyncBtn" type="button">Disable on this device</button><button id="deleteSyncBtn" class="danger" type="button">Delete synced history</button><button id="syncClose" type="button">Close</button></div></form></dialog>
 
+<script src="/editor.bundle.js"></script>
 <script>
 (function () {
   "use strict";
@@ -236,11 +282,27 @@
   }
 
   var id=path, API="/.netlify/functions/clip?id="+encodeURIComponent(id), ta=$("text");
+  var CodeMirror=window.Clip9Editor.CodeMirror,suppressEditorEvent=false;
+  var cm=CodeMirror.fromTextArea(ta,{lineNumbers:true,lineWrapping:true,mode:"text/plain",readOnly:true,autoCloseBrackets:true,matchBrackets:true,indentUnit:2,tabSize:2,indentWithTabs:false,extraKeys:{"Ctrl-/":"toggleComment","Cmd-/":"toggleComment","Tab":"indentMore","Shift-Tab":"indentLess"}});
+  function posIndex(pos){return cm.indexFromPos(pos);}
+  function indexPos(index){return cm.posFromIndex(Math.max(0,index));}
+  Object.defineProperty(ta,"value",{configurable:true,get:function(){return cm.getValue();},set:function(value){suppressEditorEvent=true;cm.setValue(String(value));suppressEditorEvent=false;}});
+  Object.defineProperty(ta,"selectionStart",{configurable:true,get:function(){return posIndex(cm.getCursor("from"));}});
+  Object.defineProperty(ta,"selectionEnd",{configurable:true,get:function(){return posIndex(cm.getCursor("to"));}});
+  Object.defineProperty(ta,"disabled",{configurable:true,get:function(){return cm.getOption("readOnly")===true;},set:function(value){cm.setOption("readOnly",Boolean(value));}});
+  ta.setSelectionRange=function(start,end){cm.setSelection(indexPos(start),indexPos(end));};
+  ta.setRangeText=function(replacement,start,end,selectionMode){suppressEditorEvent=true;cm.replaceRange(replacement,indexPos(start),indexPos(end));suppressEditorEvent=false;var cursor=selectionMode==="select"?start:start+replacement.length;cm.setSelection(indexPos(selectionMode==="select"?start:cursor),indexPos(cursor));};
+  ta.focus=function(){cm.focus();};
+  cm.on("change",function(){if(!suppressEditorEvent)ta.dispatchEvent(new Event("input",{bubbles:true}));});
   var knownVersion=null, expiresAt=null, dirty=false, saving=false, saveTimer=null, password=sessionStorage.getItem("clip9.password."+id)||"", forceNext=false, locked=false;
-  touchRecent(id); $("clip").classList.remove("hidden"); $("clipId").textContent="#"+id; document.title="Clipboard #"+id+" · Clip9";
+  touchRecent(id); $("clip").classList.remove("hidden"); setTimeout(function(){cm.refresh();},0); $("clipId").textContent="#"+id; document.title="Clipboard #"+id+" · Clip9";
 
   function setStatus(msg,kind){$("status").textContent=msg;$("dot").className="dot"+(kind?" "+kind:"");}
-  function updateCounter(){var chars=ta.value.length,trimmed=ta.value.trim(),words=trimmed?(trimmed.match(/\S+/g)||[]).length:0,lines=ta.value.split("\n").length;$("counter").textContent=chars.toLocaleString()+" / "+MAX_CHARS.toLocaleString()+" characters · "+words.toLocaleString()+" words · "+lines.toLocaleString()+" "+(lines===1?"line":"lines");}
+  var previewTimer=null;
+  function renderPreview(){clearTimeout(previewTimer);previewTimer=setTimeout(function(){$("previewPane").innerHTML=window.Clip9Editor.renderMarkdown(ta.value);},120);}
+  function updateCounter(){var chars=ta.value.length,trimmed=ta.value.trim(),words=trimmed?(trimmed.match(/\S+/g)||[]).length:0,lines=ta.value.split("\n").length;$("counter").textContent=chars.toLocaleString()+" / "+MAX_CHARS.toLocaleString()+" characters · "+words.toLocaleString()+" words · "+lines.toLocaleString()+" "+(lines===1?"line":"lines");renderPreview();}
+  function updateCursor(){var cursor=cm.getCursor(),selected=cm.getSelection().length;$("cursorStatus").textContent="Ln "+(cursor.line+1)+", Col "+(cursor.ch+1)+(selected?" · "+selected.toLocaleString()+" selected":"");}
+  cm.on("cursorActivity",updateCursor);
   function renderExpiry(){if(!expiresAt){$("expiry").textContent="Permanent";return;}var ms=expiresAt-Date.now();if(ms<=0){$("expiry").textContent="Expired";return;}var min=Math.ceil(ms/60000),days=Math.floor(min/1440),hours=Math.floor((min%1440)/60);$("expiry").textContent="Expires in "+(days?days+"d ":"")+(hours?hours+"h ":"")+(min%60)+"m";}
   setInterval(renderExpiry,30000);
   function api(method,body,query){return fetch(API+(query||""),{method:method,headers:Object.assign({"x-clip-password":password},body?{"content-type":"application/json"}:{}),body:body?JSON.stringify(body):undefined,cache:"no-store"}).then(function(r){return r.json().catch(function(){return{};}).then(function(d){if(!r.ok){var e=new Error(d.error||"Request failed");e.status=r.status;e.data=d;throw e;}return d;});});}
@@ -317,16 +379,40 @@
 
   var wrapOn=true;
   try{wrapOn=localStorage.getItem("clip9.wrap")!=="off";}catch(e){}
-  function applyWrap(){ta.classList.toggle("nowrap",!wrapOn);ta.wrap=wrapOn?"soft":"off";$("wrapBtn").textContent="Wrap: "+(wrapOn?"On":"Off");}
+  function applyWrap(){cm.setOption("lineWrapping",wrapOn);$("wrapBtn").textContent="Wrap: "+(wrapOn?"On":"Off");}
   applyWrap();
   $("wrapBtn").onclick=function(){wrapOn=!wrapOn;try{localStorage.setItem("clip9.wrap",wrapOn?"on":"off");}catch(e){}applyWrap();};
 
+  var editorShell=$("editorShell"),language="text/plain",fontChoice="mono",fontSize=15,lineHeight="1.55",view="edit";
+  try{language=localStorage.getItem("clip9.language")||language;fontChoice=localStorage.getItem("clip9.editorFont")||fontChoice;fontSize=Math.min(24,Math.max(12,Number(localStorage.getItem("clip9.fontSize"))||15));lineHeight=localStorage.getItem("clip9.lineHeight")||lineHeight;view=localStorage.getItem("clip9.editorView")||view;}catch(e){}
+  function modeFor(value){return value==="application/json"?{name:"javascript",json:true}:value;}
+  function applyLanguage(){$("languageSelect").value=language;cm.setOption("mode",modeFor(language));}
+  function applyFont(){var fonts={mono:"ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",system:"system-ui, -apple-system, 'Segoe UI', sans-serif",serif:"Georgia, 'Times New Roman', serif"};editorShell.style.setProperty("--editor-font",fonts[fontChoice]);editorShell.style.setProperty("--editor-font-size",fontSize+"px");$("fontSelect").value=fontChoice;}
+  function applyLineHeight(){editorShell.style.setProperty("--editor-line-height",lineHeight);$("lineHeightSelect").value=lineHeight;cm.refresh();}
+  function applyView(){editorShell.classList.toggle("preview-mode",view==="preview");editorShell.classList.toggle("split-mode",view==="split");$("viewSelect").value=view;renderPreview();setTimeout(function(){cm.refresh();},0);}
+  applyLanguage();applyFont();applyLineHeight();applyView();
+  $("languageSelect").onchange=function(){language=this.value;try{localStorage.setItem("clip9.language",language);}catch(e){}applyLanguage();};
+  $("fontSelect").onchange=function(){fontChoice=this.value;try{localStorage.setItem("clip9.editorFont",fontChoice);}catch(e){}applyFont();cm.refresh();};
+  $("fontDownBtn").onclick=function(){fontSize=Math.max(12,fontSize-1);try{localStorage.setItem("clip9.fontSize",fontSize);}catch(e){}applyFont();cm.refresh();};
+  $("fontUpBtn").onclick=function(){fontSize=Math.min(24,fontSize+1);try{localStorage.setItem("clip9.fontSize",fontSize);}catch(e){}applyFont();cm.refresh();};
+  $("lineHeightSelect").onchange=function(){lineHeight=this.value;try{localStorage.setItem("clip9.lineHeight",lineHeight);}catch(e){}applyLineHeight();};
+  $("viewSelect").onchange=function(){view=this.value;try{localStorage.setItem("clip9.editorView",view);}catch(e){}applyView();};
+  $("undoBtn").onclick=function(){cm.undo();cm.focus();};
+  $("redoBtn").onclick=function(){cm.redo();cm.focus();};
+  $("toolbarCopyBtn").onclick=function(){$("copyBtn").click();};
+  $("toolbarImportBtn").onclick=function(){$("importBtn").click();};
+  $("toolbarDownloadBtn").onclick=function(){$("downloadBtn").click();};
+  $("toolbarFindBtn").onclick=function(){var panel=$("findPanel");panel.open=!panel.open;if(panel.open)setTimeout(function(){$("findInput").focus();},0);};
+  $("fullscreenBtn").onclick=function(){var on=editorShell.classList.toggle("fullscreen");this.textContent=on?"Exit full screen":"Full screen";setTimeout(function(){cm.refresh();cm.focus();},0);};
+  $("focusBtn").onclick=function(){var on=document.body.classList.toggle("focus-mode");this.textContent=on?"Exit focus":"Focus";setTimeout(function(){cm.refresh();cm.focus();},0);};
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"){if(editorShell.classList.contains("fullscreen"))$("fullscreenBtn").click();if(document.body.classList.contains("focus-mode"))$("focusBtn").click();}});
+
   var theme="system";
   try{theme=localStorage.getItem("clip9.theme")||"system";}catch(e){}
-  function applyTheme(){if(theme==="system")delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=theme;$("themeBtn").textContent="Theme: "+theme.charAt(0).toUpperCase()+theme.slice(1);}
+  function applyTheme(){if(theme==="system")delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=theme;$("themeBtn").textContent="Theme: "+theme.charAt(0).toUpperCase()+theme.slice(1);setTimeout(function(){cm.refresh();},0);}
   applyTheme();
   $("themeBtn").onclick=function(){theme=theme==="system"?"light":theme==="light"?"dark":"system";try{localStorage.setItem("clip9.theme",theme);}catch(e){}applyTheme();};
-  updateCounter();
+  updateCounter();updateCursor();
 })();
 </script>
 </body>

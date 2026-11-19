@@ -1,5 +1,5 @@
-const CACHE = "clip9-shell-v2";
-const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg", "/icon-maskable.svg"];
+const CACHE = "clip9-shell-v3";
+const SHELL = ["/", "/index.html", "/editor.bundle.js", "/editor.bundle.css", "/manifest.webmanifest", "/icon.svg", "/icon-maskable.svg"];
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
